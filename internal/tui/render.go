@@ -313,7 +313,7 @@ func (m *Model) describeSelection() string {
 		parts = append(parts, fmt.Sprintf("%d errors", n.Errors))
 	}
 	if m.opts.Diff != nil {
-		parts = append(parts, textutil.SignedSize(m.opts.Diff.Delta(id, m.sizeMode))+" since "+"snapshot")
+		parts = append(parts, textutil.SignedSize(m.opts.Diff.Delta(id, m.sizeMode))+" vs old snapshot")
 	}
 	return strings.Join(parts, "  ·  ")
 }
@@ -403,6 +403,10 @@ func (m *Model) paintStatus(cv *Canvas, r treemap.Rect, class sizeClass) {
 		if x+textutil.Width(s) > r.X+avail {
 			break
 		}
-		x += cv.Text(x, r.Y, s, avail-x, Style{FG: p.fg, BG: t.StatusBg, Attr: map[bool]Attr{true: Bold}[i == 0]})
+		st := Style{FG: p.fg, BG: t.StatusBg}
+		if i == 0 {
+			st.Attr = Bold
+		}
+		x += cv.Text(x, r.Y, s, avail-x, st)
 	}
 }

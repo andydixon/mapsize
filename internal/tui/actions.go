@@ -245,6 +245,6 @@ func (v *dupView) key(m *Model, k string) (bool, tea.Cmd) {
 }
 
 func (v *dupView) wheel(m *Model, up bool) tea.Cmd {
-	v.tb.move(map[bool]int{true: -3, false: 3}[up], len(v.rows))
+	v.tb.scroll(up, len(v.rows))
 	return nil
 }

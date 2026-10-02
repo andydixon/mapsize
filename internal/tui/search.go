@@ -241,15 +241,8 @@ func (m *Model) paintSearch(cv *Canvas, r treemap.Rect) {
 	if s.ed.cur < len(text) {
 		under = textutil.Sanitize(string(text[s.ed.cur]))
 	}
-	cv.Text(cx, r.Y, under, 2, Style{FG: t.PanelBg, BG: t.Fg, Attr: Reverse * Attr(boolInt(t.Mono))})
+	cv.Text(cx, r.Y, under, 2, Style{FG: t.PanelBg, BG: t.Fg, Attr: m.monoRev()})
 	cv.TextRight(r.X, r.Y, r.W-1, textutil.Truncate(status, sw), statusSt)
-}
-
-func boolInt(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
 }
 
 func (m *Model) paintFilterSummary(cv *Canvas, r treemap.Rect) {

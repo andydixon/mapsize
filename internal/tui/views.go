@@ -98,7 +98,7 @@ func (v *listView) key(m *Model, k string) (bool, tea.Cmd) {
 
 func (v *listView) wheel(m *Model, up bool) tea.Cmd {
 	v.sync(m)
-	v.tb.move(map[bool]int{true: -3, false: 3}[up], len(m.kidsOf(m.zoom).ids))
+	v.tb.scroll(up, len(m.kidsOf(m.zoom).ids))
 	v.sync(m)
 	return nil
 }
@@ -106,16 +106,16 @@ func (v *listView) wheel(m *Model, up bool) tea.Cmd {
 // ---- Extension statistics ------------------------------------------------
 
 type extView struct {
-	tb    table
-	cache []inventory.ExtStat
-	key_  [2]int
+	tb       table
+	cache    []inventory.ExtStat
+	cacheKey [2]int
 }
 
 func (*extView) name() string { return "Types" }
 
 func (v *extView) stats(m *Model) []inventory.ExtStat {
 	k := [2]int{int(m.zoom), m.dataVer*2 + int(m.sizeMode)}
-	if v.cache == nil || v.key_ != k {
+	if v.cache == nil || v.cacheKey != k {
 		v.cache = m.tree.ExtStats(m.zoom)
 		sort.Slice(v.cache, func(i, j int) bool {
 			a, b := v.cache[i], v.cache[j]
@@ -128,7 +128,7 @@ func (v *extView) stats(m *Model) []inventory.ExtStat {
 			}
 			return a.Ext < b.Ext
 		})
-		v.key_ = k
+		v.cacheKey = k
 	}
 	return v.cache
 }
@@ -189,7 +189,7 @@ func (v *extView) key(m *Model, k string) (bool, tea.Cmd) {
 }
 
 func (v *extView) wheel(m *Model, up bool) tea.Cmd {
-	v.tb.move(map[bool]int{true: -3, false: 3}[up], len(v.stats(m)))
+	v.tb.scroll(up, len(v.stats(m)))
 	return nil
 }
 
@@ -212,12 +212,12 @@ var topNames = [...]string{"Largest files", "Largest directories (own files)", "
 	"Newest large files", "Most files", "Sparse files", "Hard-linked files"}
 
 type topView struct {
-	tb    table
-	mode  topMode
-	ids   []inventory.NodeID
-	vals  []int64
-	key_  [3]int
-	limit int
+	tb       table
+	mode     topMode
+	ids      []inventory.NodeID
+	vals     []int64
+	cacheKey [3]int
+	limit    int
 }
 
 func (*topView) name() string { return "Top" }
@@ -226,10 +226,10 @@ const topLimit = 500
 
 func (v *topView) compute(m *Model) {
 	k := [3]int{int(m.zoom), m.dataVer*2 + int(m.sizeMode), int(v.mode)}
-	if v.ids != nil && v.key_ == k {
+	if v.ids != nil && v.cacheKey == k {
 		return
 	}
-	v.key_ = k
+	v.cacheKey = k
 	tr := m.tree
 	isFile := func(n *inventory.Node) bool {
 		return n.Kind == inventory.KindFile && n.Flags&(inventory.FlagHardlinkDup|inventory.FlagDeleted) == 0
@@ -378,16 +378,16 @@ func (v *topView) key(m *Model, k string) (bool, tea.Cmd) {
 }
 
 func (v *topView) wheel(m *Model, up bool) tea.Cmd {
-	v.tb.move(map[bool]int{true: -3, false: 3}[up], len(v.ids))
+	v.tb.scroll(up, len(v.ids))
 	return nil
 }
 
 // ---- Snapshot comparison -----------------------------------------------------
 
 type changesView struct {
-	tb   table
-	rows []snapshot.Change
-	key_ int
+	tb       table
+	rows     []snapshot.Change
+	cacheKey int
 }
 
 func (*changesView) name() string { return "Changes" }
@@ -395,9 +395,9 @@ func (*changesView) name() string { return "Changes" }
 func (v *changesView) paint(m *Model, cv *Canvas, r treemap.Rect) {
 	t := m.theme
 	d := m.opts.Diff
-	if v.rows == nil || v.key_ != int(m.sizeMode) {
+	if v.rows == nil || v.cacheKey != int(m.sizeMode) {
 		v.rows = d.Changes(1000, m.sizeMode)
-		v.key_ = int(m.sizeMode)
+		v.cacheKey = int(m.sizeMode)
 	}
 	var maxAbs int64 = 1
 	for _, c := range v.rows {
@@ -452,6 +452,6 @@ func (v *changesView) key(m *Model, k string) (bool, tea.Cmd) {
 }
 
 func (v *changesView) wheel(m *Model, up bool) tea.Cmd {
-	v.tb.move(map[bool]int{true: -3, false: 3}[up], len(v.rows))
+	v.tb.scroll(up, len(v.rows))
 	return nil
 }

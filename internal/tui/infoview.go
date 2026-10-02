@@ -112,7 +112,11 @@ func (v *infoView) paint(m *Model, cv *Canvas, r treemap.Rect) {
 	line("One filesystem", fmt.Sprint(st.OneFileSystem), value)
 	line("Follow symlinks", st.Follow, value)
 	line("Size mode", m.sizeMode.String(), value)
-	line("Units", map[bool]string{true: "SI (1000)", false: "IEC (1024)"}[textutil.SI], value)
+	units := "IEC (1024)"
+	if textutil.SI {
+		units = "SI (1000)"
+	}
+	line("Units", units, value)
 	if root.Flags&inventory.FlagAllocUnknown != 0 {
 		line("Note", "allocated size unavailable on this platform", Style{FG: t.Warn, BG: t.Bg})
 	}
@@ -154,6 +158,6 @@ func (v *infoView) key(m *Model, k string) (bool, tea.Cmd) {
 }
 
 func (v *infoView) wheel(m *Model, up bool) tea.Cmd {
-	v.tb.move(map[bool]int{true: -3, false: 3}[up], len(m.tree.Stats.Errors))
+	v.tb.scroll(up, len(m.tree.Stats.Errors))
 	return nil
 }

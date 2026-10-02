@@ -418,3 +418,39 @@ func BenchmarkResizeRelayout(b *testing.B) {
 		i++
 	}
 }
+
+func TestMouse(t *testing.T) {
+	m := newTestModel(t)
+	send(m, size(120, 40))
+	m.View()
+	// Click the centre of a block other than the selected one.
+	var target treemap.Block
+	for _, b := range m.tm.blocks {
+		if b.ID != m.sel && b.ID >= 0 && m.tree.Node(inventory.NodeID(b.ID)).IsDir() && b.W > 4 {
+			target = b
+			break
+		}
+	}
+	click := tea.MouseClickMsg{X: target.X + target.W/2, Y: target.Y + target.H/2, Button: tea.MouseLeft}
+	send(m, click)
+	if m.sel != target.ID {
+		t.Fatalf("click selected %d, want %d", m.sel, target.ID)
+	}
+	m.View()
+	send(m, click) // second click within the double-click window
+	if m.zoom != inventory.NodeID(target.ID) {
+		t.Fatalf("double click should zoom into %d (zoom=%d)", target.ID, m.zoom)
+	}
+	m.View()
+	send(m, tea.MouseWheelMsg{X: 50, Y: 20, Button: tea.MouseWheelDown})
+	if m.zoom != 0 {
+		t.Fatal("wheel down should zoom out")
+	}
+	// A modal swallows clicks; clicking outside closes it.
+	send(m, key("?"))
+	m.View()
+	send(m, tea.MouseClickMsg{X: 0, Y: 39, Button: tea.MouseLeft})
+	if len(m.modals) != 0 {
+		t.Fatal("click outside modal should close it")
+	}
+}

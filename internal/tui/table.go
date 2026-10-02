@@ -29,6 +29,15 @@ type table struct {
 	height         int // rows visible in the last paint
 }
 
+// scroll moves the cursor three rows for a mouse wheel step.
+func (tb *table) scroll(up bool, n int) {
+	if up {
+		tb.move(-3, n)
+	} else {
+		tb.move(3, n)
+	}
+}
+
 func (tb *table) move(d, n int) {
 	if n == 0 {
 		tb.cursor = 0
@@ -177,7 +186,10 @@ func (m *Model) paintBar(cv *Canvas, x, y, w int, frac float64, col Color, sel b
 			ch = parts[eighths]
 		}
 		if t.ASCII {
-			ch = map[bool]string{true: "#", false: " "}[eighths >= 4]
+			ch = " "
+			if eighths >= 4 {
+				ch = "#"
+			}
 		}
 		eighths -= 8
 		st := Style{FG: col, BG: bg}
