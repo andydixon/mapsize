@@ -190,7 +190,7 @@ func usage(fs *flag.FlagSet) {
 
 Usage:
   %[1]s [flags] [PATH]             scan PATH (default .) interactively
-  %[1]s [flags] SNAPSHOT%[2]s        open a saved snapshot
+  %[1]s [flags] SNAPSHOT%[2]s       open a saved snapshot
   %[1]s --compare OLD NEW          compare two snapshots
   %[1]s PATH --top 50 | --json | --csv | --no-ui --save FILE
 
