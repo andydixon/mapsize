@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 
 	"github.com/andydixon/mapsize/internal/inventory"
+	"github.com/andydixon/mapsize/internal/platform"
 )
 
 // Group is a set of files verified to have identical content.
@@ -226,7 +227,7 @@ func (f *Finder) splitHash(ctx context.Context, g []cand, workers int) []fullGro
 
 // open opens a candidate and checks it still has the inventoried size.
 func open(c cand) (*os.File, bool) {
-	fh, err := os.Open(c.path)
+	fh, err := platform.OpenContent(c.path)
 	if err != nil {
 		return nil, false
 	}
