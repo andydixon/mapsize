@@ -110,7 +110,7 @@ func (v *infoView) paint(m *Model, cv *Canvas, r treemap.Rect) {
 	}
 	line("Exclusions", excl, value)
 	line("One filesystem", fmt.Sprint(st.OneFileSystem), value)
-	line("Follow symlinks", st.Follow, value)
+	line("Follow symlinks", textutil.Sanitize(st.Follow), value)
 	line("Size mode", m.sizeMode.String(), value)
 	units := "IEC (1024)"
 	if textutil.SI {
