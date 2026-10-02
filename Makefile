@@ -53,7 +53,7 @@ release:
 		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch GOARM=7 go build -trimpath \
 			-ldflags '$(LDFLAGS) -X github.com/andydixon/mapsize/internal/brand.Version='$$v \
 			-o $$d/mapsize$$ext ./cmd/mapsize; \
-		cp README.md CHANGELOG.md docs/mapsize.1 $$d/; \
+		cp README.md CHANGELOG.md LICENSE docs/mapsize.1 $$d/; \
 		if [ $$os = windows ]; then (cd $(REL) && zip -qr $$name.zip $$name); \
 		else tar -C $(REL) -czf $(REL)/$$name.tar.gz $$name; fi; \
 		if [ $$os = linux ]; then mkdir -p $(REL)/pkg && cp $$d/mapsize $(REL)/pkg/; \
