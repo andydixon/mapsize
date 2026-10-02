@@ -3,45 +3,48 @@
 Status markers: `[x]` done, `[~]` partial, `[ ]` not started.
 
 ## 0.1 — inventory engine
-- [ ] Go project skeleton, Makefile, CI
-- [ ] portable filesystem scanner, bounded worker pool, no-deadlock scheduler
-- [ ] inventory node model, incremental aggregation
-- [ ] cancellation, progress counters, error accounting
-- [ ] CLI: `--top`, `--json`, `--csv`, `--no-ui`
+- [x] Go project skeleton, Makefile, CI
+- [x] portable filesystem scanner, bounded worker pool, no-deadlock scheduler
+- [x] inventory node model, incremental aggregation
+- [x] cancellation, progress counters, error accounting
+- [x] CLI: `--top`, `--json`, `--csv`, `--no-ui`
 
 ## 0.2 — TUI shell
-- [ ] full-screen Bubble Tea v2 app, canvas renderer, frame cache
-- [ ] responsive layout (large / medium / small / too-small)
-- [ ] resize handling, status bar, progressive display, directory list
+- [x] full-screen Bubble Tea v2 app, canvas renderer, frame cache
+- [x] responsive layout (large / medium / small / too-small)
+- [x] resize handling, status bar, progressive display, directory list
 
 ## 0.3 — treemap
-- [ ] squarified layout, edge-snapped cell rectangles
-- [ ] renderer with borders, nested preview, adaptive labels
-- [ ] level-of-detail grouping, category colouring
+- [x] squarified layout, edge-snapped cell rectangles
+- [x] renderer with borders, nested preview, adaptive labels
+- [x] level-of-detail grouping, category colouring
 
 ## 0.4 — interaction
-- [ ] spatial arrow navigation, stable NodeID selection
-- [ ] info modal (scrollable, resize-aware), zoom, breadcrumbs, mouse
+- [x] spatial arrow navigation, stable NodeID selection
+- [x] info modal (scrollable, resize-aware), zoom, breadcrumbs, mouse
 
 ## 0.5 — investigation
-- [ ] search & filter language (AND/OR/NOT, parentheses, units, ages)
-- [ ] extension statistics, largest files / dirs, error view
+- [x] search & filter language (AND/OR/NOT, parentheses, units, ages)
+- [x] extension statistics, largest files / dirs, error view
 
 ## 0.6 — snapshots
-- [ ] versioned binary snapshot format, save/load, comparison, growth treemap
+- [x] versioned binary snapshot format, save/load, comparison, growth treemap
 
 ## 0.7 — duplicates
-- [ ] staged duplicate detection (size → sampled hash → SHA-256), view
+- [x] staged duplicate detection (size → sampled hash → SHA-256), view
 
 ## 0.8 — operations
-- [ ] read-only mode, JSON/CSV export
-- [ ] move-to-trash (freedesktop, macOS ~/.Trash, Windows recycle bin)
+- [x] read-only mode, JSON/CSV export
+- [x] move-to-trash: freedesktop trash (tested on Linux); macOS ~/.Trash and Windows Recycle Bin implemented but not yet tested on those systems
 
 ## 0.9 — hardening (ongoing)
-- [ ] profiling & benchmarks (see PERFORMANCE.md)
+- [~] profiling & benchmarks (warm-cache only so far) (see PERFORMANCE.md)
 - [ ] memory reduction (name arena) if profiles justify it
 - [ ] Windows allocated-size via GetCompressedFileSizeW (opt-in)
 - [ ] configurable keybindings
+- [ ] cold-cache HDD scan benchmarks (need root to drop caches)
+- [ ] incremental path-predicate evaluation for filters
+- [ ] permanent deletion (deliberately not offered yet; trash only)
 
 ## 1.0
 - [ ] stable snapshot format v1 guarantee, packaged releases

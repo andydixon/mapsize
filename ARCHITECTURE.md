@@ -124,6 +124,14 @@ releases the lock between batches). This is the only lock in the data path.
 3. Nodes are never deleted; a `NodeID` once observed stays valid.
 4. Workers share nothing mutable except the bounded channels and atomic
    progress counters.
+5. No goroutine ever takes `RLock` while already holding it. Go's
+   `RWMutex` blocks new readers once a writer waits, so a recursive read
+   lock can deadlock against the scan controller. The TUI takes the lock
+   once per entry point (`View`, `handleKey`, mouse handlers); helpers they
+   call assume it is held. Background commands (filter, duplicates,
+   snapshot save) take their own lock on their own goroutine.
+6. After a scan finishes, the UI goroutine may become the writer (move to
+   trash updates aggregates under `Lock`). Trash is refused while scanning.
 
 ## Hard links and sizes
 
@@ -170,15 +178,25 @@ all except for a single `scanDoneMsg`. The UI polls at a fixed rate.
 `View()` is called by Bubble Tea after *every* `Update`. The model therefore
 caches the rendered frame and only repaints when something visible changed.
 
+Expensive per-directory work (sorting children by size) is cached per data
+version. During a scan the version advances at most every 400 ms, so the
+layout does not jitter at frame rate even though labels and counters update
+at the 10 Hz refresh.
+
 ## Rendering: the canvas
 
 All drawing goes to an in-memory `Canvas` of cells (grapheme, fg, bg, attrs).
 Views and modals paint into the canvas; the canvas is serialised to a string
 with minimal SGR changes. Bubble Tea's renderer diffs frames and downsamples
 true-colour to the detected profile (256 / 16 / none), so the drawing code
-uses RGB throughout. Selection never relies on colour alone: the selected
-rectangle uses a double-line border, bold reversed title and a status-line
-description.
+uses RGB throughout. For 256-colour terminals the canvas quantizes colours
+itself (redmean distance over the 6×6×6 cube and grey ramp, never the
+palette-dependent first 16 entries): the stock conversion maps dark tints to
+saturated olive/navy and destroys the shading. `--color` overrides
+detection (useful over SSH, where `COLORTERM` is often not forwarded).
+`NO_COLOR` selects the `mono` theme, which relies on attributes and glyphs
+only. Selection never relies on colour alone: the selected rectangle uses a
+double-line border, bold reversed title and a status-line description.
 
 ## Treemap algorithm
 
@@ -230,8 +248,9 @@ when content does not fit.
 
 ## Selection persistence
 
-Selection is a `NodeID` (plus, for the synthetic LOD group, the group's parent
-ID and a group marker). After any relayout the renderer looks the ID up in the
+Selection is a `NodeID` (or, for the synthetic LOD group, `-1 - parentID`).
+Until the user moves the selection it follows the largest block, which
+changes while a scan runs; after that it is sticky. After any relayout the renderer looks the ID up in the
 new rectangle list. If it is absent (filtered out, collapsed into a group,
 zoom changed) selection falls back to: the group containing it, then its
 nearest visible ancestor, then the largest block.
