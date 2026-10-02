@@ -44,6 +44,22 @@ path reconstruction for job dispatch ~7 %; aggregation is negligible.
 **~158 bytes per node** (node record ~112 bytes plus name storage and
 directory side tables). Extrapolated, 10 M entries need ~1.6 GiB.
 
+## Snapshots
+
+Same 458,510-node tree:
+
+| operation | result |
+|---|---:|
+| snapshot file size (gzip level 1) | 6.7 MB (~15 bytes/node) |
+| scan + save | 1.03 s |
+| load (`mapsize --no-ui file.msz`), 3 runs | 0.28 / 0.29 / 0.32 s, 81 MB RSS |
+| warm-cache rescan for comparison | 0.55 s |
+
+Loading decompresses and verifies SHA-256 on a separate goroutine, overlapping
+with parsing. Against a warm cache the win is ~1.9×; against a cold cache or
+a network filesystem, where scans are dominated by I/O latency, it is far
+larger (not yet measured here).
+
 ## UI
 
 `go test ./internal/tui -bench Big` on a synthetic in-memory tree of

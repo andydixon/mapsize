@@ -126,7 +126,7 @@ func (tb *table) paint(m *Model, cv *Canvas, r treemap.Rect, cols []column, rows
 			if !sel && ci < len(row.styles) && row.styles[ci] != nil {
 				st = *row.styles[ci]
 			}
-			if c.title == "" && row.bar >= 0 && c.width > 0 {
+			if c.title == "" && row.bar >= 0 {
 				m.paintBar(cv, x, y, w, row.bar, row.barCol, sel)
 			} else if c.right {
 				cv.Text(x, y, textutil.PadLeft(s, w), w, st)

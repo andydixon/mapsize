@@ -235,7 +235,7 @@ func (r *reader) uvarint(max uint64, what string) uint64 {
 	if r.err != nil {
 		return 0
 	}
-	v, err := binary.ReadUvarint(r.r)
+	v, err := readUvarint(r.r)
 	if err != nil {
 		r.fail("bad %s: %v", what, err)
 		return 0
@@ -251,11 +251,42 @@ func (r *reader) varint(what string) int64 {
 	if r.err != nil {
 		return 0
 	}
-	v, err := binary.ReadVarint(r.r)
+	ux, err := readUvarint(r.r)
 	if err != nil {
 		r.fail("bad %s: %v", what, err)
 	}
+	v := int64(ux >> 1) // zig-zag, as encoding/binary.PutVarint
+	if ux&1 != 0 {
+		v = ^v
+	}
 	return v
+}
+
+var errOverflow = errors.New("varint overflows 64 bits")
+
+// readUvarint is encoding/binary.ReadUvarint specialised to *bufio.Reader
+// (no interface dispatch per byte; this is the loader's hot loop).
+func readUvarint(br *bufio.Reader) (uint64, error) {
+	var x uint64
+	var s uint
+	for i := 0; i < binary.MaxVarintLen64; i++ {
+		b, err := br.ReadByte()
+		if err != nil {
+			if i > 0 && err == io.EOF {
+				err = io.ErrUnexpectedEOF
+			}
+			return x, err
+		}
+		if b < 0x80 {
+			if i == binary.MaxVarintLen64-1 && b > 1 {
+				return x, errOverflow
+			}
+			return x | uint64(b)<<s, nil
+		}
+		x |= uint64(b&0x7f) << s
+		s += 7
+	}
+	return x, errOverflow
 }
 
 func (r *reader) bytesN(n uint64) []byte {
@@ -295,8 +326,17 @@ func Load(in io.Reader) (*inventory.Tree, error) {
 		return nil, fmt.Errorf("snapshot: %w", err)
 	}
 	gz.Multistream(false)
+	// Decompression and hashing run on their own goroutine, overlapping
+	// with parsing. The pipe's close orders the hash and br accesses: the
+	// parser only sees EOF after the copier has finished with both.
 	h := sha256.New()
-	r := &reader{r: bufio.NewReaderSize(io.TeeReader(gz, h), 1<<16)}
+	pr, pw := io.Pipe()
+	defer pr.Close() // unblocks the copier if we bail out early
+	go func() {
+		_, err := io.CopyBuffer(pw, io.TeeReader(gz, h), make([]byte, 256<<10))
+		pw.CloseWithError(err)
+	}()
+	r := &reader{r: bufio.NewReaderSize(pr, 1<<16)}
 
 	var m meta
 	if mb := r.bytesN(r.uvarint(MaxMetaLen, "metadata length")); r.err == nil {

@@ -1,7 +1,9 @@
 package snapshot
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/binary"
 	"testing"
 
 	"github.com/andydixon/mapsize/internal/inventory"
@@ -119,5 +121,19 @@ func TestCompare(t *testing.T) {
 	}
 	if _, ok := paths["/srv/c/z"]; ok {
 		t.Fatal("contents of new dirs should not be listed separately")
+	}
+}
+
+func TestReadUvarintMatchesStdlib(t *testing.T) {
+	for _, v := range []uint64{0, 1, 127, 128, 300, 1 << 35, 1<<64 - 1} {
+		buf := binary.AppendUvarint(nil, v)
+		got, err := readUvarint(bufio.NewReader(bytes.NewReader(buf)))
+		if err != nil || got != v {
+			t.Fatalf("%d: got %d %v", v, got, err)
+		}
+	}
+	bad := bytes.Repeat([]byte{0xff}, 11)
+	if _, err := readUvarint(bufio.NewReader(bytes.NewReader(bad))); err == nil {
+		t.Fatal("overflow not detected")
 	}
 }

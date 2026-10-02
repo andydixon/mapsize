@@ -230,7 +230,7 @@ type helpModal struct{}
 
 func newHelpModal(*Model) modal { return helpModal{} }
 
-func (helpModal) width() int           { return 74 }
+func (helpModal) width() int           { return 78 }
 func (helpModal) title() string        { return "Keyboard reference" }
 func (helpModal) footer(*Model) string { return "Esc close  ·  ↑↓ scroll" }
 
@@ -246,7 +246,7 @@ func (helpModal) content(m *Model, _ int) []line {
 		}
 		out = append(out, styled(s, h))
 	}
-	row := func(keys, desc string) { out = append(out, line{{"  " + textutil.PadRight(keys, 16), &k}, {desc, &d}}) }
+	row := func(keys, desc string) { out = append(out, line{{"  " + textutil.PadRight(keys, 19), &k}, {desc, &d}}) }
 	sec("NAVIGATION")
 	row("↑ ↓ ← →  hjkl", "move spatially through the treemap")
 	row("Enter", "inspect the selected item")
@@ -260,7 +260,9 @@ func (helpModal) content(m *Model, _ int) []line {
 	row("Esc", "clear the filter")
 	out = append(out, styled("    ubuntu   *.iso   size > 5GB   ext IN (iso,qcow2)   age > 365d", Style{FG: t.Muted}))
 	out = append(out, styled("    path contains cache AND NOT type = dir   owner = andy   flag = sparse", Style{FG: t.Muted}))
-	out = append(out, styled("    fields: "+filter.Fields, Style{FG: t.Muted}))
+	fields := strings.Fields(filter.Fields)
+	out = append(out, styled("    fields: "+strings.Join(fields[:7], " "), Style{FG: t.Muted}))
+	out = append(out, styled("            "+strings.Join(fields[7:], " "), Style{FG: t.Muted}))
 	out = append(out, styled("    sizes: KiB/MiB/GiB (1024), kB/MB/GB (1000); ages: s min h d w mo y", Style{FG: t.Muted}))
 	sec("VIEWS")
 	row("Tab  Shift+Tab", "next / previous view")
