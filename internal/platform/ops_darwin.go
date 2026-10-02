@@ -21,7 +21,7 @@ func Reveal(path string) error {
 
 // Trash moves path into ~/.Trash (same volume) or the volume's
 // .Trashes/<uid> directory. It never copies and never deletes.
-func Trash(path string) error {
+func Trash(path string, want Expect) error {
 	if err := checkAbs(path); err != nil {
 		return err
 	}
@@ -34,8 +34,13 @@ func Trash(path string) error {
 		dirs = append(dirs, filepath.Join(vol, ".Trashes", fmt.Sprint(os.Getuid())))
 	}
 	base := filepath.Base(path)
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
+	for vi, dir := range dirs {
+		if err := os.MkdirAll(filepath.Dir(dir), 0o700); err != nil {
+			continue
+		}
+		// A volume trash is on a shared filesystem: another user could plant
+		// a symlink or an open directory there, so insist on a private one.
+		if err := ensurePrivateDir(dir, vi > 0); err != nil {
 			continue
 		}
 		for i := 1; i < 10000; i++ {
@@ -47,7 +52,7 @@ func Trash(path string) error {
 			if _, err := os.Lstat(dst); err == nil {
 				continue
 			}
-			err := os.Rename(path, dst)
+			err := renameChecked(path, dst, want)
 			if errors.Is(err, syscall.EXDEV) {
 				break // try the next trash location
 			}
