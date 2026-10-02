@@ -192,7 +192,9 @@ true-colour to the detected profile (256 / 16 / none), so the drawing code
 uses RGB throughout. For 256-colour terminals the canvas quantizes colours
 itself (redmean distance over the 6×6×6 cube and grey ramp, never the
 palette-dependent first 16 entries): the stock conversion maps dark tints to
-saturated olive/navy and destroys the shading. `--color` overrides
+saturated olive/navy and destroys the shading. For 16 colours, dark shades
+map to black, greys to the grey entries, and saturated colours keep their
+hue, so shadows stay quiet and categories stay distinguishable. `--color` overrides
 detection (useful over SSH, where `COLORTERM` is often not forwarded).
 `NO_COLOR` selects the `mono` theme, which relies on attributes and glyphs
 only. Selection never relies on colour alone: the selected rectangle uses a
