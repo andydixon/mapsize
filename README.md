@@ -75,7 +75,7 @@ go install github.com/andydixon/mapsize/cmd/mapsize@v1.0.0
 make build   # → bin/mapsize
 sudo make install   # binary + man page under /usr/local (PREFIX=… to change)
 
-# Homebrew (macOS and Linux), once the tap is published
+# Homebrew (macOS and Linux)
 brew install andydixon/tap/mapsize
 ```
 
