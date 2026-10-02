@@ -37,7 +37,7 @@ Status markers: `[x]` done, `[~]` partial, `[ ]` not started.
 - [x] read-only mode, JSON/CSV export
 - [x] move-to-trash: freedesktop trash (tested on Linux); macOS ~/.Trash and Windows Recycle Bin implemented but not yet tested on those systems
 
-## 0.9 — hardening (ongoing)
+## 0.9 — hardening
 - [~] profiling & benchmarks (warm-cache only so far) (see PERFORMANCE.md)
 - [ ] memory reduction (name arena) if profiles justify it
 - [ ] Windows allocated-size via GetCompressedFileSizeW (opt-in)
@@ -46,5 +46,12 @@ Status markers: `[x]` done, `[~]` partial, `[ ]` not started.
 - [x] incremental path-predicate evaluation for filters
 - [ ] permanent deletion (deliberately not offered yet; trash only)
 
-## 1.0
-- [ ] stable snapshot format v1 guarantee, packaged releases
+## 1.0 (released 2026-10-02)
+- [x] stable snapshot format v1 guarantee
+- [x] packaged releases (`make release`: archives, deb/rpm/apk/Arch, checksums)
+- [x] manual page
+
+## After 1.0
+Unchecked items above carry over; candidates for 1.1 are cold-cache
+benchmarks, configurable keybindings and testing trash/reveal on macOS and
+Windows.

@@ -12,6 +12,36 @@ make fuzz       # short fuzz runs of snapshot / treemap / filter
 make release    # cross-compiled binaries in bin/release
 ```
 
+## Releasing
+
+```sh
+git tag -a v1.0.0 -m "mapsize 1.0.0"
+make release          # bin/release: archives, .deb/.rpm/.apk/Arch, SHA256SUMS
+```
+
+The version comes from `git describe` and is stamped into
+`brand.Version`; untagged builds report the fallback in
+`internal/brand/brand.go`. Packages need network access the first time
+(`nfpm` is fetched with `go run`). Bump the version in `docs/mapsize.1` and
+`brand.go` and add a CHANGELOG section before tagging.
+
+### Homebrew
+
+After pushing the tag:
+
+```sh
+make brew-formula     # → bin/homebrew/mapsize.rb with the tarball's sha256
+```
+
+Copy the result to `Formula/mapsize.rb` in the tap repository
+`github.com/andydixon/homebrew-tap`; users then run
+`brew install andydixon/tap/mapsize`. The formula builds from source with
+Go, stamps the version and installs the man page. Template:
+`packaging/homebrew/mapsize.rb.in`.
+
+The snapshot format is stable at version 1: a format change must bump
+`snapshot.Version` and keep the reader for version 1.
+
 ## Test data
 
 `treegen` creates synthetic trees:

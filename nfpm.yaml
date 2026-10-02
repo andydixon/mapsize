@@ -7,3 +7,7 @@ homepage: https://github.com/andydixon/mapsize
 contents:
   - src: bin/release/pkg/mapsize
     dst: /usr/bin/mapsize
+  - src: docs/mapsize.1
+    dst: /usr/share/man/man1/mapsize.1
+    file_info:
+      mode: 0644
