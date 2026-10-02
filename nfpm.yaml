@@ -1,0 +1,9 @@
+name: mapsize
+arch: ${ARCH}
+version: ${VERSION}
+maintainer: Andy Dixon <andy@dixon.cx>
+description: Interactive full-terminal disk usage analyser with a live treemap.
+homepage: https://github.com/andydixon/mapsize
+contents:
+  - src: bin/release/pkg/mapsize
+    dst: /usr/bin/mapsize
