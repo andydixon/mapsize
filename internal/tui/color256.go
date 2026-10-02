@@ -43,3 +43,54 @@ func quant256(c Color) uint8 {
 	q256Cache.Store(c, uint8(best))
 	return uint8(best)
 }
+
+var q16Cache sync.Map // Color -> uint8
+
+// quant16 maps a colour to a basic colour. Dark shades become black and
+// unsaturated colours grey/white, so tints and shadows stay quiet; saturated
+// colours keep their hue (bright variant when light), so category colours
+// survive. The stock conversion instead turns dark tints into bright
+// yellow/cyan.
+func quant16(c Color) uint8 {
+	if v, ok := q16Cache.Load(c); ok {
+		return v.(uint8)
+	}
+	rf, gf, bf := c.rgb()
+	mx, mn := max(rf, gf, bf), min(rf, gf, bf)
+	luma := c.Luma()
+	var n uint8
+	switch {
+	case luma < 0.2:
+		n = 0
+	case mx-mn < 0.12: // grey
+		switch {
+		case luma < 0.45:
+			n = 8
+		case luma < 0.8:
+			n = 7
+		default:
+			n = 15
+		}
+	default:
+		// Hue in sixths: red, yellow, green, cyan, blue, magenta.
+		var h float64
+		switch mx {
+		case rf:
+			h = math.Mod((gf-bf)/(mx-mn), 6)
+		case gf:
+			h = (bf-rf)/(mx-mn) + 2
+		default:
+			h = (rf-gf)/(mx-mn) + 4
+		}
+		if h < 0 {
+			h += 6
+		}
+		ansi := [6]uint8{1, 3, 2, 6, 4, 5}[int(math.Round(h))%6]
+		n = ansi
+		if luma > 0.5 {
+			n += 8
+		}
+	}
+	q16Cache.Store(c, n)
+	return n
+}

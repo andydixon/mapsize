@@ -232,7 +232,16 @@ func (cv *Canvas) Line(y int) string {
 	return b.String()
 }
 
-func sgr(b *strings.Builder, st Style, p256 bool) {
+// colorDepth selects how colours are serialised.
+type colorDepth uint8
+
+const (
+	depthTrue colorDepth = iota
+	depth256
+	depth16
+)
+
+func sgr(b *strings.Builder, st Style, depth colorDepth) {
 	b.WriteString("\x1b[0")
 	if st.Attr&Bold != 0 {
 		b.WriteString(";1")
@@ -253,9 +262,21 @@ func sgr(b *strings.Builder, st Style, p256 bool) {
 		if c == 0 {
 			return
 		}
-		if p256 {
+		switch depth {
+		case depth256:
 			b.WriteString(";" + base + ";5;")
 			b.WriteString(strconv.Itoa(int(quant256(c))))
+			return
+		case depth16:
+			n := int(quant16(c))
+			code := 30 + n
+			if n >= 8 {
+				code = 90 + n - 8
+			}
+			if base == "48" {
+				code += 10
+			}
+			b.WriteString(";" + strconv.Itoa(code))
 			return
 		}
 		b.WriteString(";" + base + ";2;")
@@ -270,14 +291,14 @@ func sgr(b *strings.Builder, st Style, p256 bool) {
 	b.WriteByte('m')
 }
 
-// String serialises the canvas as lines of text with SGR styling. Colours
-// are emitted as 24-bit, or as 256-colour indices from our own quantizer
-// when p256 is set; Bubble Tea downsamples further (16 colours, none) to
-// the terminal's profile.
-func (cv *Canvas) String() string { return cv.Render(false) }
+// String serialises the canvas as lines of text with SGR styling and
+// 24-bit colours.
+func (cv *Canvas) String() string { return cv.Render(depthTrue) }
 
-// Render serialises the canvas; see String.
-func (cv *Canvas) Render(p256 bool) string {
+// Render serialises the canvas. For 256 and 16 colours it quantizes with
+// its own perceptual mapping (see color256.go); Bubble Tea strips colour
+// entirely for colourless terminals.
+func (cv *Canvas) Render(depth colorDepth) string {
 	var b strings.Builder
 	b.Grow(cv.W * cv.H * 4)
 	for y := 0; y < cv.H; y++ {
@@ -292,7 +313,7 @@ func (cv *Canvas) Render(p256 bool) string {
 				continue
 			}
 			if first || c.st != cur {
-				sgr(&b, c.st, p256)
+				sgr(&b, c.st, depth)
 				cur, first = c.st, false
 			}
 			b.WriteString(c.s)

@@ -454,3 +454,29 @@ func TestMouse(t *testing.T) {
 		t.Fatal("click outside modal should close it")
 	}
 }
+
+func TestQuantizers(t *testing.T) {
+	if quant16(RGB(10, 12, 8)) != 0 {
+		t.Fatal("near-black should map to black")
+	}
+	if n := quant16(RGB(0xe0, 0x6c, 0x75)); n != 1 && n != 9 {
+		t.Fatalf("red-ish mapped to %d", n)
+	}
+	if n := quant256(RGB(40, 48, 30)); n < 16 {
+		t.Fatalf("256 quantizer used palette-dependent index %d", n)
+	}
+	// A dark, slightly tinted shade must land on the grey ramp or a dark
+	// cube entry, not a saturated one like olive (58) or navy (17).
+	if n := quant256(RGB(40, 48, 30)); n == 58 || n == 17 || n == 22 {
+		t.Fatalf("dark tint mapped to saturated %d", n)
+	}
+}
+
+func TestColourDepthsRenderSameGeometry(t *testing.T) {
+	for _, p := range []colorprofile.Profile{colorprofile.TrueColor, colorprofile.ANSI256, colorprofile.ANSI, colorprofile.ASCII} {
+		m := newTestModel(t)
+		m.profile = p
+		send(m, size(100, 30))
+		checkFrame(t, m, 100, 30)
+	}
+}

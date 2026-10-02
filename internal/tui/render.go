@@ -76,7 +76,7 @@ func (m *Model) render() string {
 	g := computeGeometry(m.w, m.h)
 	if g.class == tooSmall {
 		m.renderTooSmall(cv)
-		return cv.Render(m.profile == colorprofile.ANSI256)
+		return cv.Render(m.depth())
 	}
 	m.tree.RLock()
 	defer m.tree.RUnlock()
@@ -100,7 +100,17 @@ func (m *Model) render() string {
 	if len(m.modals) > 0 {
 		m.paintModal(cv)
 	}
-	return cv.Render(m.profile == colorprofile.ANSI256)
+	return cv.Render(m.depth())
+}
+
+func (m *Model) depth() colorDepth {
+	switch m.profile {
+	case colorprofile.ANSI256:
+		return depth256
+	case colorprofile.ANSI:
+		return depth16
+	}
+	return depthTrue
 }
 
 func (m *Model) renderTooSmall(cv *Canvas) {
