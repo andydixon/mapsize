@@ -1,0 +1,452 @@
+.\" Manual page for mapsize. View with: man -l docs/mapsize.1
+.TH MAPSIZE 1 "October 2026" "mapsize 0.9.0-dev" "User Commands"
+.SH NAME
+mapsize \- interactive terminal disk usage analyser with a navigable treemap
+.SH SYNOPSIS
+.B mapsize
+[\fIOPTIONS\fR] [\fIPATH\fR]
+.br
+.B mapsize
+[\fIOPTIONS\fR] \fISNAPSHOT\fR.msz
+.br
+.B mapsize
+\fB\-\-compare\fR [\fIOPTIONS\fR] \fIOLD\fR.msz \fINEW\fR.msz
+.br
+.B mapsize
+\fIPATH\fR {\fB\-\-top\fR \fIN\fR | \fB\-\-largest\-files\fR \fIN\fR | \fB\-\-json\fR | \fB\-\-csv\fR | \fB\-\-no\-ui\fR} [\fIOPTIONS\fR]
+.SH DESCRIPTION
+.B mapsize
+scans a directory tree and shows its disk usage as a live, space-filling
+treemap that fills the terminal. Each rectangle's area is proportional to the
+size of a file or directory; colours show file categories. The display
+populates while the scan runs and stays interactive throughout.
+.PP
+Arrow keys move spatially between rectangles, Enter shows details, Space
+zooms into a directory and Backspace zooms out. Other views list directory
+contents, file types, top-N lists, scan errors, duplicate files and snapshot
+differences. A query language filters the treemap to matching data.
+.PP
+With no \fIPATH\fR the current directory is scanned. If \fIPATH\fR is a
+snapshot file written by
+.BR mapsize ,
+it is opened instead of scanning. Options may appear before or after
+positional arguments.
+.PP
+When any report option (\fB\-\-no\-ui\fR, \fB\-\-json\fR, \fB\-\-csv\fR,
+\fB\-\-top\fR, \fB\-\-largest\-files\fR, \fB\-\-duplicates\fR) is given,
+.B mapsize
+runs non-interactively and writes to standard output, which makes it
+suitable for scripts, cron jobs and SSH sessions without a full terminal.
+Progress is written to standard error when it is a terminal.
+.SH OPTIONS
+.SS Scanning
+.TP
+.BI \-\-workers " MODE"
+Number of concurrent directory readers:
+.BR conservative " (2), " balanced " (default; min(8, 2\(mu CPUs)), " aggressive
+(min(64, 8\(mu CPUs)), or a number from 1 to 1024. More is not always faster:
+on rotational disks 2\(en4 workers are often best.
+.TP
+.BI \-\-follow\-symlinks " MODE"
+.B none
+(default) treats symbolic links as leaves.
+.B same\-filesystem
+follows links to directories on the same filesystem;
+.B all
+follows every directory link. Loops are detected and nothing is counted
+twice. Ignored (forced to \fBnone\fR) on platforms without inode identity,
+such as Windows.
+.TP
+.BR \-\-one\-file\-system ", " \-x
+Do not descend into directories on a different filesystem than the scan
+root. Without it, other filesystems are scanned (as
+.BR du (1)
+does) and marked as mount points; Linux virtual filesystems (proc, sysfs,
+cgroup, debugfs, \&...) are never scanned.
+.TP
+.BI \-\-exclude " PATTERN"
+Skip matching entries. A pattern containing a path separator matches the
+absolute path (relative patterns are resolved against the working
+directory) and everything beneath it; otherwise it is a shell glob matched
+against the entry name. May be repeated. Exclusions are always shown in the
+interface and reports.
+.TP
+.BI \-\-scan " PATH"
+Path to scan; an alternative to the positional argument.
+.SS Display
+.TP
+.B \-\-apparent
+Size by logical (apparent) size instead of allocated disk usage.
+.TP
+.B \-\-si
+Use SI units (kB, MB, GB; powers of 1000) instead of the default IEC units
+(KiB, MiB, GiB; powers of 1024). The two are never mixed.
+.TP
+.BI \-\-theme " NAME"
+Colour theme:
+.BR default ", " dark ", " high\-contrast " or " mono .
+.TP
+.BI \-\-color " DEPTH"
+Override colour detection:
+.BR auto " (default), " truecolor ", " 256 ", " 16 " or " none .
+Useful over SSH, where \fBCOLORTERM\fR is often not forwarded.
+.TP
+.B \-\-no\-mouse
+Disable mouse support. Everything works from the keyboard.
+.TP
+.B \-\-read\-only
+Disable every action that modifies the filesystem (moving to trash) and
+show \fBREAD ONLY\fR in the header. Saving a snapshot file is still
+allowed. This does not make
+.B mapsize
+a forensic acquisition tool: scanning uses ordinary filesystem calls, and
+duplicate detection reads file contents, which may update access times.
+.SS Reports
+.TP
+.B \-\-no\-ui
+Scan without the interactive interface and print a summary.
+.TP
+.BI \-\-top " N"
+Print the \fIN\fR largest entries directly under the root.
+.TP
+.BI \-\-largest\-files " N"
+Print the \fIN\fR largest files anywhere in the tree.
+.TP
+.B \-\-json
+Print the inventory as nested JSON, with scan metadata and error counts.
+.TP
+.B \-\-csv
+Print one CSV row per entry: path, type, size, allocated, files, dirs,
+errors, modified, flags. Paths are escaped so the output is safe to print
+to a terminal.
+.TP
+.BI \-\-depth " N"
+Limit \fB\-\-json\fR and \fB\-\-csv\fR to \fIN\fR levels (default \-1,
+unlimited).
+.TP
+.B \-\-duplicates
+Find files with identical content and print verified groups (see
+\fBDUPLICATES\fR).
+.SS Snapshots
+.TP
+.BI \-\-save " FILE" "\fR, \fP\-\-snapshot " FILE
+Save a snapshot when the scan completes (not if it was cancelled).
+.TP
+.BI \-\-load " FILE"
+Open a snapshot instead of scanning.
+.TP
+.B \-\-compare
+Compare two snapshots given as positional arguments, \fIOLD\fR then
+\fINEW\fR. Opens the interface (read-only) with growth and shrinkage
+colouring, or prints the most significant changes with \fB\-\-no\-ui\fR
+(\fB\-\-top\fR sets how many; default 30).
+.SS Diagnostics
+.TP
+.BI \-\-log " FILE"
+Append a log to \fIFILE\fR without disturbing the interface. Full paths are
+logged only at \fBdebug\fR level and above.
+.TP
+.BI \-\-log\-level " LEVEL"
+.BR error ", " warn ", " info " (default), " debug " or " trace .
+.TP
+.BI \-\-cpuprofile " FILE"
+Write a Go CPU profile.
+.TP
+.BI \-\-memprofile " FILE"
+Write a Go heap profile on exit.
+.TP
+.B \-\-version
+Print the version and exit.
+.TP
+.BR \-h ", " \-\-help
+Print usage and exit.
+.SH KEYS
+.SS Navigation
+.TP 18
+.BR "\(ua \(da \(<- \(->" ", " "h j k l"
+Move to the neighbouring rectangle in that direction (lists: move the
+cursor).
+.TP
+.B Enter
+Show item information: path, logical and allocated size, type, category,
+times, mode, owner, group, hard links, sparseness, and for directories file
+and directory counts, share of parent and scan, largest child and errors
+beneath.
+.TP
+.BR Space ", " \(->
+Zoom into the selected directory (lists: enter it).
+.TP
+.BR Backspace ", " \(<-
+Zoom out one level.
+.TP
+.B Home
+Return to the scan root.
+.TP
+.B Esc
+Clear the filter, otherwise zoom out; closes any open window.
+.SS Views
+.TP 18
+.BR Tab ", " Shift+Tab
+Next / previous view.
+.TP
+.BR 1 \(en 7
+Jump to a view:
+.BR Map ", " List ", " Types ", " Top ", " Scan ,
+then \fBChanges\fR (compare mode) and \fBDups\fR (after a duplicate
+search).
+.TP
+.B x
+File types: count and size per extension. Enter filters the map by that
+extension.
+.TP
+.B g
+Top lists: largest files, largest directories by own files, oldest and
+newest large files, directories with most entries, sparse files, hard-linked
+files. \(<- and \(-> switch lists; Enter shows details; Space jumps to the item
+in the map.
+.TP
+.B e
+Scan information and the error list.
+.TP
+.B D
+Find duplicate files (asks first).
+.SS Actions
+.TP 18
+.B /
+Search or filter (see \fBFILTER LANGUAGE\fR). Enter keeps the filter, Esc
+clears it.
+.TP
+.B a
+Toggle allocated / logical size.
+.TP
+.B c
+Copy the selected path to the clipboard (OSC 52; terminal support varies).
+.TP
+.B o
+Reveal the selected item in the desktop file manager.
+.TP
+.BR d ", " Delete
+Move the selected item to the trash after confirmation. Disabled with
+\fB\-\-read\-only\fR, for snapshots, and while scanning.
+.TP
+.B s
+Save a snapshot.
+.TP
+.B r
+Rescan, returning to the same directory when it is found again.
+.TP
+.B T
+Cycle colour themes.
+.TP
+.BR ? ", " F1
+Help.
+.TP
+.B Ctrl+C
+Cancel a running scan; press again to quit.
+.TP
+.B q
+Quit (in a window: close it).
+.SS Mouse
+Click selects a rectangle or row; double-click zooms into a directory or
+shows file details; right-click shows details; the wheel zooms the map or
+scrolls lists and windows. Clicking a breadcrumb or tab activates it.
+Clicking outside a window closes it.
+.SH DISPLAY
+Directories are drawn with a border, their name on the top edge and their
+size and share on the bottom edge; large directories show nested previews of
+their contents. The selected rectangle has a double border and a highlighted
+title, so it remains visible without colour.
+.PP
+A terminal has few cells, so entries too small to draw usefully are merged
+into one hatched \fI"N smaller items"\fR block. Enter lists them; zooming in
+or enlarging the terminal reveals them individually.
+.PP
+Layouts adapt to the terminal size: a side panel with a category breakdown
+appears in large terminals, smaller ones get a compact layout, and below
+40\(mu10 a short message is shown instead. Every resize recomputes the
+layout for the new size while keeping the selection, zoom and filter.
+.PP
+Categories are: Image, Video, Audio, Archive, Disk image, Database, Source
+code, Document, Executable, Log, Cache and Other. Directories take the colour
+of the category using most of their space. In compare mode colours show
+change instead: red grew, green shrank, blue new, grey unchanged.
+.SH FILTER LANGUAGE
+A query is one or more conditions combined with
+.BR AND ,
+.B OR
+and
+.B NOT
+(also
+.BR && ", " || ", " ! ),
+with parentheses for grouping. Conditions written side by side are joined
+with AND. Keywords and string comparisons are case-insensitive.
+.PP
+A bare word matches names containing it; a word with \fB*\fR, \fB?\fR or
+\fB[\fR is a glob on the name. Otherwise a condition is
+\fIfield operator value\fR:
+.TP 12
+.B Fields
+.BR name ", " path ", " ext ", " type " (file, dir, symlink, other), " category ,
+.BR size ", " allocated ", " age ", " modified ", " owner ", " group ,
+.BR files " (entries beneath a directory), " flag
+(sparse, hardlink, error, mount, incomplete, followed, broken).
+.TP
+.B Operators
+.BR = ", " != ", " > ", " >= ", " < ", " <= ", " contains ", " matches
+(regular expression; also \fB~\fR) and
+.B in
+with a parenthesised list: \fBext IN (iso,qcow2)\fR.
+.TP
+.B Sizes
+.BR kB ", " MB ", " GB ", " TB
+are SI (1000);
+.BR KiB ", " MiB ", " GiB ", " TiB
+are IEC (1024); bare
+.BR K ", " M ", " G ", " T
+follow the display units.
+.TP
+.B Ages
+.BR s ", " min ", " h ", " d " (default), " w ", " mo " (30 days), " y
+(365 days).
+.B modified
+also accepts dates such as 2024\-01\-31.
+.PP
+A matching directory contributes its whole contents. Examples:
+.PP
+.RS
+.nf
+ubuntu
+*.iso
+size > 5GB
+size > 500MB AND ext IN (iso,qcow2,vmdk)
+path contains cache AND NOT type = dir
+age > 365d AND size > 100MiB
+owner = andy OR flag = sparse
+.fi
+.RE
+.SH SIZES
+By default sizes are \fIallocated\fR (blocks actually used on disk, like
+.BR du (1));
+\fB\-\-apparent\fR or \fBa\fR switches to \fIlogical\fR size. Both appear in
+the information window. Files whose allocated size is at least 4 KiB smaller
+than their logical size are flagged sparse (this also covers filesystem
+compression). On Windows allocated size is not available and logical size is
+used.
+.PP
+Hard links: the first path seen for an inode is counted; later paths add
+nothing to totals and are marked. Which path counts first depends on scan
+order. Windows does not report link counts during enumeration, so hard links
+are not deduplicated there.
+.PP
+Totals are marked incomplete whenever something could not be read
+(permission denied, I/O error, files vanishing during the scan, a cancelled
+scan). Every error is listed in the Scan view.
+.SH DUPLICATES
+Duplicate detection never relies on names or sizes alone. Files are grouped
+by exact size, then three 16 KiB samples (start, middle, end) are hashed,
+and remaining candidates are hashed completely with SHA-256. Only files with
+identical SHA-256 digests are reported as duplicates. Hard links to the same
+inode are not reported. Files that change size or cannot be read during the
+search are skipped and counted.
+.SH SNAPSHOTS
+A snapshot stores the whole inventory in a versioned, gzip-compressed binary
+format with a SHA-256 checksum; it reloads far faster than a rescan of a
+large or slow filesystem. Snapshot files are treated as untrusted: corrupt
+or malicious files are rejected, sizes are bounded, decompressed size is
+limited to 64 times the file size, and aggregates are recomputed rather than
+read. Comparison matches entries by path.
+.SH FILES
+.TP
+.I $XDG_CONFIG_HOME/mapsize/config.json
+Optional settings (default \fI~/.config/mapsize/config.json\fR on Linux,
+\fI~/Library/Application Support/mapsize/config.json\fR on macOS,
+\fI%AppData%\(rsmapsize\(rsconfig.json\fR on Windows). Command-line options
+override it. Keys:
+.BR workers ", " follow_symlinks ", " one_file_system ", " units " (iec or si), "
+.BR size_mode " (allocated or logical), " theme ", " mouse ", " excludes " (list), "
+.BR category_colors " and " extension_colors " (maps to \(dq#rrggbb\(dq), " refresh_hz .
+.PP
+.RS
+.nf
+{
+  "workers": "balanced",
+  "theme": "dark",
+  "excludes": ["/proc", "*.tmp"],
+  "extension_colors": {"qcow2": "#c678dd"}
+}
+.fi
+.RE
+.TP
+.I ~/.local/share/Trash
+Where \fBd\fR moves items on Linux (freedesktop.org trash; items on other
+filesystems go to \fI.Trash\-UID\fR at that filesystem's top). macOS uses
+\fI~/.Trash\fR; Windows uses the Recycle Bin.
+.SH ENVIRONMENT
+.TP
+.B NO_COLOR
+If set, use the \fBmono\fR theme (attributes and glyphs only).
+.TP
+.BR COLORTERM ", " TERM
+Used for colour detection. On \fBTERM=linux\fR box drawing falls back to
+ASCII.
+.TP
+.B MAPSIZE_ASCII
+If set, draw with ASCII characters only.
+.TP
+.B MAPSIZE_DEBUG_PANIC
+Developer aid: \fBui\fR or \fBscanner\fR deliberately crashes to verify that
+the terminal is restored.
+.SH EXIT STATUS
+.TP
+.B 0
+Success, including a scan cancelled from the interface.
+.TP
+.B 1
+An error occurred (for example the path does not exist, a snapshot is
+invalid, or an internal error).
+.TP
+.B 2
+Invalid command-line usage.
+.SH EXAMPLES
+.TP
+.B mapsize /srv
+Explore /srv interactively.
+.TP
+.B mapsize \-x /
+Explore the root filesystem without crossing into other mounts.
+.TP
+.B mapsize \-\-read\-only \-\-color 256 /mnt/evidence
+Investigate without any modifying actions, forcing 256 colours.
+.TP
+.B mapsize /srv \-\-no\-ui \-\-save srv\-$(date +%F).msz
+Nightly snapshot from cron.
+.TP
+.B mapsize \-\-compare srv\-2026\-10\-01.msz srv\-2026\-10\-02.msz
+See what grew overnight.
+.TP
+.B mapsize /home \-\-top 20 \-\-exclude \(aq*.tmp\(aq
+Print the 20 largest entries under /home.
+.TP
+.B mapsize /data \-\-json \-\-depth 2 | jq .tree.children[0]
+Machine-readable output.
+.SH SECURITY
+Filenames are untrusted. Control characters, escape sequences, bidirectional
+overrides and invalid UTF-8 in names are displayed in escaped form (for
+example \fB\(rsx1b\fR) and are never sent to the terminal; the real names are
+kept for file operations. No shell is ever invoked: opening the file manager
+and moving to the trash use direct program execution or native APIs.
+.SH BUGS
+Trash and file-manager integration have been tested on Linux only. Hard-link
+deduplication, allocated sizes and symlink following are unavailable on
+Windows. Keybindings are not configurable.
+.PP
+Report bugs to the author.
+.SH AUTHOR
+Andy Dixon <mapsize@dixon.cx>
+.br
+https://dixon.cx
+.SH SEE ALSO
+.BR du (1),
+.BR df (1),
+.BR ncdu (1),
+.BR find (1)
