@@ -166,3 +166,7 @@ read-only mode.
 * [ARCHITECTURE.md](ARCHITECTURE.md) — design and invariants
 * [DEVELOPMENT.md](DEVELOPMENT.md) — building, testing, profiling
 * [PERFORMANCE.md](PERFORMANCE.md) — measured results
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](LICENSE).

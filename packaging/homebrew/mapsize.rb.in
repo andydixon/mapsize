@@ -5,6 +5,7 @@
 class Mapsize < Formula
   desc "Interactive terminal disk usage analyser with a navigable treemap"
   homepage "https://dixon.cx"
+  license "GPL-3.0-or-later"
   url "https://github.com/andydixon/mapsize/archive/refs/tags/v@VERSION@.tar.gz"
   sha256 "@SHA256@"
   head "https://github.com/andydixon/mapsize.git", branch: "master"
