@@ -2,12 +2,20 @@ BIN     := bin
 PKG     := ./...
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w
+PREFIX  ?= /usr/local
 
-.PHONY: build test race vet fmt fmt-check benchmark fuzz release clean treegen
+.PHONY: build install man test race vet fmt fmt-check benchmark fuzz release clean treegen
 
 build:
 	go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/mapsize ./cmd/mapsize
 	go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/treegen ./cmd/treegen
+
+install: build
+	install -Dm755 $(BIN)/mapsize $(DESTDIR)$(PREFIX)/bin/mapsize
+	install -Dm644 docs/mapsize.1 $(DESTDIR)$(PREFIX)/share/man/man1/mapsize.1
+
+man:
+	man -l docs/mapsize.1
 
 test:
 	go test $(PKG)
