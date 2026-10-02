@@ -9,35 +9,45 @@ make race       # go test -race ./...
 make vet fmt-check
 make benchmark  # go test -bench
 make fuzz       # short fuzz runs of snapshot / treemap / filter
-make release    # cross-compiled binaries in bin/release
+make release    # release archives and packages in bin/release
 ```
 
 ## Releasing
 
-```sh
-git tag -a v1.0.0 -m "mapsize 1.0.0"
-make release          # bin/release: archives, .deb/.rpm/.apk/Arch, SHA256SUMS
-```
+Example for 1.2.0; substitute the real version throughout.
 
-The version comes from `git describe` and is stamped into
-`brand.Version`; untagged builds report the fallback in
-`internal/brand/brand.go`. Packages need network access the first time
-(`nfpm` is fetched with `go run`). Bump the version in `docs/mapsize.1` and
-`brand.go` and add a CHANGELOG section before tagging.
+1. Update the version in `internal/brand/brand.go` and `docs/mapsize.1`,
+   and add a `## 1.2.0` section to CHANGELOG.md. Commit.
+2. Tag and push:
+   ```sh
+   git tag -a v1.2.0 -m "mapsize 1.2.0"
+   git push origin master v1.2.0
+   ```
+3. Build everything (archives, .deb/.rpm/.apk/Arch packages, SHA256SUMS
+   into `bin/release`; the first run downloads `nfpm`):
+   ```sh
+   make release VERSION=v1.2.0
+   ```
+4. Publish the GitHub release with the changelog section as notes:
+   ```sh
+   awk '/^## 1.2.0/{f=1;next} /^## /{f=0} f' CHANGELOG.md > /tmp/notes.md
+   gh release create v1.2.0 --title v1.2.0 --notes-file /tmp/notes.md bin/release/*
+   ```
+5. Update Homebrew. This needs the tag pushed (step 2), because it
+   checksums GitHub's source tarball for that tag:
+   ```sh
+   make brew-formula VERSION=v1.2.0      # writes bin/homebrew/mapsize.rb
+   git clone https://github.com/andydixon/homebrew-tap /tmp/tap
+   cp bin/homebrew/mapsize.rb /tmp/tap/Formula/mapsize.rb
+   git -C /tmp/tap commit -am "mapsize 1.2.0" && git -C /tmp/tap push
+   ```
+   Users get it with `brew upgrade mapsize`. Template:
+   `packaging/homebrew/mapsize.rb.in`.
 
-### Homebrew
-
-After pushing the tag:
-
-```sh
-make brew-formula     # → bin/homebrew/mapsize.rb with the tarball's sha256
-```
-
-Copy the result to `Formula/mapsize.rb` in the tap repository
-`github.com/andydixon/homebrew-tap`; users then run
-`brew install andydixon/tap/mapsize`. The formula builds from source with
-Go, stamps the version and installs the man page. Template:
-`packaging/homebrew/mapsize.rb.in`.
+Always pass `VERSION=`: otherwise it comes from `git describe`, which only
+matches the tag when HEAD is exactly the tagged commit. `make release` and
+the Homebrew formula stamp the version into the binary; `make build` and
+`go install` use the value in `brand.go`, which is why step 1 updates it.
 
 The snapshot format is stable at version 1: a format change must bump
 `snapshot.Version` and keep the reader for version 1.
