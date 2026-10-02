@@ -333,12 +333,22 @@ func (l *limitedReader) Read(p []byte) (int, error) {
 // (real snapshots compress ~6×), with a 64 MiB floor for tiny files.
 func bodyLimit(fileSize int64) int64 { return max(64<<20, fileSize*64) }
 
+// nodeLimit caps the node count for a file of fileSize bytes. Real
+// snapshots spend ~15 compressed bytes per node; a crafted one describes a
+// node in a fraction of a byte, so without this a 1 MB file can demand
+// gigabytes of memory while staying within bodyLimit.
+func nodeLimit(fileSize int64) uint64 { return uint64(max(1<<20, fileSize)) }
+
 // Load reads and validates a snapshot, allowing up to DefaultMaxBody bytes
 // of decompressed data.
 func Load(in io.Reader) (*inventory.Tree, error) { return LoadLimit(in, DefaultMaxBody) }
 
 // LoadLimit is Load with an explicit decompressed-size limit.
 func LoadLimit(in io.Reader, maxBody int64) (*inventory.Tree, error) {
+	return load(in, maxBody, MaxNodes)
+}
+
+func load(in io.Reader, maxBody int64, maxNodes uint64) (*inventory.Tree, error) {
 	br := bufio.NewReaderSize(in, 1<<20)
 	hdr := make([]byte, len(brand.SnapshotMagic)+4)
 	if _, err := io.ReadFull(br, hdr); err != nil {
@@ -389,8 +399,11 @@ func LoadLimit(in io.Reader, maxBody int64) (*inventory.Tree, error) {
 		return nil, r.err
 	}
 	extIndex := t.ExtIndexer()
-	nNodes := r.uvarint(MaxNodes, "node count")
+	nNodes := r.uvarint(maxNodes, "node count")
 	depth := []uint16{0} // per node, for the depth limit; parents precede children
+	if r.err != nil {
+		return nil, r.err
+	}
 	if nNodes == 0 {
 		return nil, errors.New("snapshot: no root node")
 	}
@@ -507,9 +520,9 @@ func LoadFile(path string) (*inventory.Tree, error) {
 		return nil, err
 	}
 	defer f.Close()
-	limit := int64(DefaultMaxBody)
+	limit, nodes := int64(DefaultMaxBody), uint64(MaxNodes)
 	if fi, err := f.Stat(); err == nil {
-		limit = bodyLimit(fi.Size())
+		limit, nodes = bodyLimit(fi.Size()), nodeLimit(fi.Size())
 	}
-	return LoadLimit(f, limit)
+	return load(f, limit, nodes)
 }
