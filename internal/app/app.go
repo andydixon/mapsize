@@ -93,6 +93,12 @@ func runReport(cfg *Config) error {
 	if s != nil {
 		waitWithProgress(s, cfg.Stderr)
 	}
+	if cfg.Duplicates && !cfg.JSON && !cfg.CSV {
+		// Find takes its own read lock; never nest RLock.
+		if err := runDuplicates(ctx, cfg, t); err != nil {
+			return err
+		}
+	}
 	t.RLock()
 	defer t.RUnlock()
 	if s != nil && cfg.Save != "" {
@@ -107,11 +113,6 @@ func runReport(cfg *Config) error {
 		return export.JSON(out, t, t.Root(), cfg.Depth)
 	case cfg.CSV:
 		return export.CSV(out, t, t.Root(), cfg.Depth)
-	}
-	if cfg.Duplicates {
-		if err := runDuplicates(ctx, cfg, t); err != nil {
-			return err
-		}
 	}
 	if cfg.Top > 0 {
 		ids := t.SortedChildren(t.Root(), cfg.SizeMode)

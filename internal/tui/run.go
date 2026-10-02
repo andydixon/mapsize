@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime/debug"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/colorprofile"
@@ -47,6 +49,17 @@ func Run(opts Options) error {
 		select {} // park the broken goroutine; the program is quitting
 	}
 	defer func() { scan.OnPanic = prev }()
+	if debugPanic == "scanner" {
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			defer func() {
+				if v := recover(); v != nil {
+					scan.OnPanic(v, debug.Stack())
+				}
+			}()
+			panic("MAPSIZE_DEBUG_PANIC=scanner: deliberate panic to test terminal restoration")
+		}()
+	}
 
 	_, err = p.Run()
 	cancel()

@@ -75,12 +75,12 @@ func (v *listView) paint(m *Model, cv *Canvas, r treemap.Rect) {
 			rows[i].cells[4] = textutil.SignedSize(m.opts.Diff.Delta(id, m.sizeMode))
 		}
 	}
-	cols := []column{{"SIZE", 10, true}, {"%", 5, true}, {"", 12, false}, {"FILES", 10, true}, {"MODIFIED", 10, false}, {"NAME", 0, false}}
+	cols := []column{{"SIZE", 10, true, false}, {"%", 5, true, false}, {"", 12, false, false}, {"FILES", 10, true, false}, {"MODIFIED", 10, false, false}, {"NAME", 0, false, false}}
 	if m.opts.Diff != nil {
-		cols[4] = column{"CHANGE", 12, true}
+		cols[4] = column{"CHANGE", 12, true, false}
 	}
 	if r.W < 70 {
-		cols = []column{{"SIZE", 10, true}, {"%", 5, true}, {"NAME", 0, false}}
+		cols = []column{{"SIZE", 10, true, false}, {"%", 5, true, false}, {"NAME", 0, false, false}}
 		for i := range rows {
 			rows[i].cells = []string{rows[i].cells[0], rows[i].cells[1], rows[i].cells[5]}
 			rows[i].styles = []*Style{nil, rows[i].styles[1], rows[i].styles[5]}
@@ -160,7 +160,7 @@ func (v *extView) paint(m *Model, cv *Canvas, r treemap.Rect) {
 			bar:    frac, barCol: col,
 		}
 	}
-	cols := []column{{"EXTENSION", 14, false}, {"CATEGORY", 12, false}, {"FILES", 11, true}, {"SIZE", 10, true}, {"%", 5, true}, {"", 0, false}}
+	cols := []column{{"EXTENSION", 14, false, false}, {"CATEGORY", 12, false, false}, {"FILES", 11, true, false}, {"SIZE", 10, true, false}, {"%", 5, true, false}, {"", 0, false, false}}
 	v.tb.paint(m, cv, r, cols, rows, fmt.Sprintf("File types under %s — Enter filters the map by extension", textutil.Sanitize(m.tree.Node(m.zoom).Name)))
 }
 
@@ -342,7 +342,7 @@ func (v *topView) paint(m *Model, cv *Canvas, r treemap.Rect) {
 	case topSparse:
 		valTitle = "SAVED"
 	}
-	cols := []column{{valTitle, 10, true}, {"MODIFIED", 10, false}, {"", 10, false}, {"PATH", 0, false}}
+	cols := []column{{valTitle, 10, true, false}, {"MODIFIED", 10, false, false}, {"", 10, false, false}, {"PATH", 0, false, true}}
 	v.tb.paint(m, cv, r, cols, rows, title)
 }
 
@@ -413,7 +413,8 @@ func (v *changesView) paint(m *Model, cv *Canvas, r treemap.Rect) {
 			bar:    float64(abs64(c.Delta)) / float64(maxAbs), barCol: col,
 		}
 	}
-	cols := []column{{"CHANGE", 13, true}, {"STATUS", 9, false}, {"OLD", 10, true}, {"NEW", 10, true}, {"", 10, false}, {"PATH", 0, false}}
+	cols := []column{{"CHANGE", 13, true, false}, {"STATUS", 9, false, false}, {"OLD", 10, true, false}, {"NEW", 10, true, false},
+		{"", 10, false, false}, {"PATH", 0, false, true}}
 	ro, rn := d.Old.Node(0).Total(m.sizeMode), d.New.Node(0).Total(m.sizeMode)
 	title := fmt.Sprintf("Changes  %s → %s  (%s)", textutil.Size(ro), textutil.Size(rn), textutil.SignedSize(rn-ro))
 	v.tb.paint(m, cv, r, cols, rows, title)

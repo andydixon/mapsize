@@ -131,14 +131,14 @@ func (v *infoView) paint(m *Model, cv *Canvas, r treemap.Rect) {
 		if e.Name != "" {
 			p += "/" + e.Name
 		}
-		rows[i] = tableRow{cells: []string{e.Kind.String(), textutil.Sanitize(e.Msg), textutil.Sanitize(p)},
-			styles: []*Style{{FG: t.Err, BG: t.Bg}, {FG: t.Muted, BG: t.Bg}, nil}, bar: -1}
+		rows[i] = tableRow{cells: []string{e.Kind.String(), textutil.Sanitize(p), textutil.Sanitize(e.Msg)},
+			styles: []*Style{{FG: t.Err, BG: t.Bg}, nil, {FG: t.Muted, BG: t.Bg}}, bar: -1}
 	}
 	title := fmt.Sprintf("ERROR LIST (%s)", textutil.Count(st.TotalErrors()))
 	if int64(len(st.Errors)) < st.TotalErrors() {
 		title += fmt.Sprintf(" — first %s shown", textutil.Count(int64(len(st.Errors))))
 	}
-	v.tb.paint(m, cv, er, []column{{"KIND", 20, false}, {"DETAIL", 24, false}, {"PATH", 0, false}}, rows, title)
+	v.tb.paint(m, cv, er, []column{{"KIND", 18, false, false}, {"PATH", 0, false, true}, {"DETAIL", 22, false, false}}, rows, title)
 }
 
 func (v *infoView) key(m *Model, k string) (bool, tea.Cmd) {

@@ -34,6 +34,13 @@ func runCompare(cfg *Config) error {
 		return fmt.Errorf("%s: %w", cfg.Compare[1], err)
 	}
 	d := snapshot.Compare(old, nw)
+	if !cfg.Report() {
+		return tui.Run(tui.Options{
+			ReadOnly: true, Theme: cfg.Theme, SizeMode: cfg.SizeMode, Mouse: cfg.Mouse, Color: cfg.Color,
+			Settings: cfg.Settings, Diff: d,
+			Start: func(context.Context) (*scan.Scanner, *inventory.Tree, error) { return nil, nw, nil },
+		})
+	}
 	k := cfg.Top
 	if k <= 0 {
 		k = 30
@@ -50,8 +57,6 @@ func runCompare(cfg *Config) error {
 }
 
 func runDuplicates(ctx context.Context, cfg *Config, t *inventory.Tree) error {
-	// The caller holds RLock; Find takes its own read lock, which is fine
-	// for a RWMutex only if no writer is waiting — the scan is finished.
 	var f duplicate.Finder
 	groups, err := f.Find(ctx, t, duplicate.Options{MinSize: 1})
 	if err != nil {
@@ -59,6 +64,8 @@ func runDuplicates(ctx context.Context, cfg *Config, t *inventory.Tree) error {
 	}
 	out := cfg.Stdout
 	var wasted int64
+	t.RLock()
+	defer t.RUnlock()
 	for _, g := range groups {
 		wasted += g.Wasted()
 		fmt.Fprintf(out, "%s × %d  (sha256 %x…)\n", textutil.Size(g.Size), len(g.Files), g.Hash[:6])

@@ -212,7 +212,7 @@ func (v *dupView) paint(m *Model, cv *Canvas, r treemap.Rect) {
 	if d.err != nil {
 		title += " — stopped: " + textutil.Sanitize(d.err.Error())
 	}
-	v.tb.paint(m, cv, r, []column{{"WASTED", 10, true}, {"COPIES", 16, false}, {"", 0, false}}, tr, title)
+	v.tb.paint(m, cv, r, []column{{"WASTED", 10, true, false}, {"COPIES", 16, false, false}, {"", 0, false, false}}, tr, title)
 }
 
 func (v *dupView) key(m *Model, k string) (bool, tea.Cmd) {

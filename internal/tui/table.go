@@ -9,9 +9,10 @@ import (
 
 // column describes one table column.
 type column struct {
-	title string
-	width int // 0 = flexible (takes the remaining space)
-	right bool
+	title    string
+	width    int // 0 = flexible (takes the remaining space)
+	right    bool
+	clipLeft bool // truncate from the left (paths: the tail matters)
 }
 
 // tableRow is one rendered row: cell strings plus optional per-cell styles.
@@ -129,6 +130,8 @@ func (tb *table) paint(m *Model, cv *Canvas, r treemap.Rect, cols []column, rows
 				m.paintBar(cv, x, y, w, row.bar, row.barCol, sel)
 			} else if c.right {
 				cv.Text(x, y, textutil.PadLeft(s, w), w, st)
+			} else if c.clipLeft {
+				cv.Text(x, y, textutil.TruncateLeft(s, w), w, st)
 			} else {
 				cv.Text(x, y, textutil.Truncate(s, w), w, st)
 			}

@@ -150,6 +150,11 @@ func newModel(opts Options, s *scan.Scanner, t *inventory.Tree, cancel context.C
 
 const noSel int64 = 1 << 62
 
+// debugPanic lets developers verify terminal restoration on crashes:
+// MAPSIZE_DEBUG_PANIC=ui panics on the first key press; =scanner panics in
+// a background goroutine shortly after start.
+var debugPanic = os.Getenv("MAPSIZE_DEBUG_PANIC")
+
 // Init starts ticking and waits for scan completion.
 func (m *Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{tea.RequestWindowSize}
@@ -271,6 +276,9 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 		m.fatal = &msg
 		m.quit = true
 	case tea.KeyPressMsg:
+		if debugPanic == "ui" {
+			panic("MAPSIZE_DEBUG_PANIC=ui: deliberate panic to test terminal restoration")
+		}
 		m.dirty = true
 		prev := m.sel
 		m.zoomed = false
