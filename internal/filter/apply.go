@@ -43,13 +43,20 @@ func Apply(ctx context.Context, t *inventory.Tree, q *Query, m inventory.SizeMod
 	r := &Result{Query: q, Mode: m, Sizes: make([]int64, n), Matched: make([]bool, n)}
 	covered := make([]bool, n)
 	c := &Ctx{Tree: t, Now: time.Now().UnixNano()}
+	if q.UsesPath {
+		c.dirPaths = map[inventory.NodeID]string{}
+	}
 	for i := range n {
 		if i&0xffff == 0 && ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
 		id := inventory.NodeID(i)
 		nd := t.Node(id)
-		c.ID, c.Node = id, nd
+		c.ID, c.Node, c.path = id, nd, ""
+		if c.dirPaths != nil && nd.IsDir() {
+			c.path = c.lowerPath()
+			c.dirPaths[id] = c.path
+		}
 		if i > 0 && q.Match(c) {
 			r.Matched[i] = true
 			covered[i] = true

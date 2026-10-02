@@ -95,15 +95,15 @@ once per rendered frame, so a resize storm cannot queue up work.
 |---|---:|
 | `size > 1MB` | 31 ms |
 | `*.dat AND size > 500k` | 119 ms |
-| `path contains sub3` (reconstructs every path) | 244 ms |
+| `path contains sub3` | 112 ms |
 
 Filters run on a background goroutine with cancellation and a 120 ms
 keystroke debounce; the UI never waits for them.
 
 ## Known costs / future work
 
-* Path predicates rebuild each node's path; an incremental evaluation along
-  the tree would make them ~10× cheaper.
+* Path predicates now build each path from the cached parent directory path
+  (244 ms → 112 ms); globs are dominated by `filepath.Match`.
 * Node records could shrink (owner/group/mode/link count are only needed for
   display and some filters) if memory on 10 M+ entry trees matters.
 * Cold-cache HDD benchmarks still need to be run with root access.

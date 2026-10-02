@@ -16,6 +16,9 @@ type Ctx struct {
 	Node *inventory.Node
 	Now  int64 // unix nanoseconds
 	path string
+	// dirPaths caches lower-cased directory paths during Apply, which visits
+	// parents before children, so a node's path is one concatenation.
+	dirPaths map[inventory.NodeID]string
 }
 
 func (c *Ctx) str(f Field) string {
@@ -25,7 +28,7 @@ func (c *Ctx) str(f Field) string {
 		return strings.ToLower(n.Name)
 	case FPath:
 		if c.path == "" {
-			c.path = strings.ToLower(c.Tree.Path(c.ID))
+			c.path = c.lowerPath()
 		}
 		return c.path
 	case FExt:
@@ -60,6 +63,22 @@ func (c *Ctx) num(f Field) int64 {
 		return int64(n.Files)
 	}
 	return 0
+}
+
+func (c *Ctx) lowerPath() string {
+	if c.dirPaths != nil {
+		if p, ok := c.dirPaths[c.ID]; ok {
+			return p
+		}
+		if pp, ok := c.dirPaths[c.Node.Parent]; ok {
+			sep := string(filepath.Separator)
+			if strings.HasSuffix(pp, sep) {
+				sep = ""
+			}
+			return pp + sep + strings.ToLower(c.Node.Name)
+		}
+	}
+	return strings.ToLower(c.Tree.Path(c.ID))
 }
 
 type node interface{ eval(*Ctx) bool }
@@ -154,7 +173,4 @@ func (n numNode) eval(c *Ctx) bool {
 }
 
 // Match evaluates the query against one node.
-func (q *Query) Match(c *Ctx) bool {
-	c.path = ""
-	return q.root.eval(c)
-}
+func (q *Query) Match(c *Ctx) bool { return q.root.eval(c) }

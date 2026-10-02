@@ -43,7 +43,7 @@ Status markers: `[x]` done, `[~]` partial, `[ ]` not started.
 - [ ] Windows allocated-size via GetCompressedFileSizeW (opt-in)
 - [ ] configurable keybindings
 - [ ] cold-cache HDD scan benchmarks (need root to drop caches)
-- [ ] incremental path-predicate evaluation for filters
+- [x] incremental path-predicate evaluation for filters
 - [ ] permanent deletion (deliberately not offered yet; trash only)
 
 ## 1.0
