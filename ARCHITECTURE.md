@@ -296,7 +296,7 @@ Filenames and snapshot contents are untrusted.
 * Snapshot decoding validates magic, version, every length, every parent
   reference (a parent must precede its child, so cycles are impossible),
   depth (≤ 4096 levels, bounding recursion in exporters), per-node sizes
-  (≤ 1 EiB) and node count; caps the decompressed body at 64× the file size
+  (≤ 1 EiB) and node count (at most one node per byte of snapshot file, 1 Mi floor); caps the decompressed body at 64× the file size
   (decompression bombs fail fast); and verifies a SHA-256 trailer.
   Aggregates are recomputed with saturating arithmetic rather than trusted.
 * No shell is ever invoked. "Open/reveal" and trash use direct `exec` with

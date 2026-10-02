@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -127,5 +129,32 @@ func TestHostileMetadataSanitisedInSummary(t *testing.T) {
 	export.Summary(&b, tr)
 	if strings.ContainsAny(b.String(), "\x1b\x07") {
 		t.Fatalf("raw control characters in summary: %q", b.String())
+	}
+}
+
+// Blocks of one directory plus K-1 files repeat byte for byte, so a small
+// file describes millions of nodes; LoadFile must refuse before allocating.
+func TestNodeAmplificationLimited(t *testing.T) {
+	const k, n = 1000, 1_200_001
+	data := craft(n, `{"root":"/r"}`, func(i int, w *writer) {
+		switch {
+		case i == 0:
+			node(w, 0, inventory.KindDir, "", 0)
+		case i == 1:
+			node(w, 1, inventory.KindDir, "d", 0)
+		case (i-1)%k == 0:
+			node(w, k, inventory.KindDir, "d", 0)
+		default:
+			node(w, uint64((i-1)%k), inventory.KindFile, "f", 0)
+		}
+	})
+	if _, err := Load(bytes.NewReader(data)); err != nil {
+		t.Fatalf("crafted tree is otherwise valid: %v", err)
+	}
+	p := filepath.Join(t.TempDir(), "amp.msz")
+	os.WriteFile(p, data, 0o644)
+	_, err := LoadFile(p)
+	if err == nil || !strings.Contains(err.Error(), "node count") {
+		t.Fatalf("%d nodes from a %d-byte file accepted: %v", n, len(data), err)
 	}
 }
