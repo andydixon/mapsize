@@ -72,7 +72,11 @@ the map or scrolls lists. Everything works without a mouse (`--no-mouse`).
 go install github.com/andydixon/mapsize/cmd/mapsize@latest
 # or
 make build   # → bin/mapsize
+sudo make install   # binary + man page under /usr/local (PREFIX=… to change)
 ```
+
+Full reference: `man mapsize` after installing, or `make man` /
+`man -l docs/mapsize.1` from the source tree.
 
 ## Usage
 
@@ -154,6 +158,7 @@ read-only mode.
 
 ## Documentation
 
+* [docs/mapsize.1](docs/mapsize.1) — manual page
 * [ARCHITECTURE.md](ARCHITECTURE.md) — design and invariants
 * [DEVELOPMENT.md](DEVELOPMENT.md) — building, testing, profiling
 * [PERFORMANCE.md](PERFORMANCE.md) — measured results
