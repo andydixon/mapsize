@@ -109,7 +109,7 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case "D":
 		return m.startDuplicates()
 	case "c":
-		return m.copyPath()
+		return m.copySelected()
 	case "o":
 		return m.reveal()
 	case "d", "delete":
@@ -200,10 +200,20 @@ func (m *Model) selectedPath() (string, bool) {
 	return m.tree.Path(id), true
 }
 
-func (m *Model) copyPath() tea.Cmd {
+func (m *Model) copySelected() tea.Cmd {
 	p, ok := m.selectedPath()
 	if !ok {
 		return nil
+	}
+	return m.copyPath(p)
+}
+
+// copyPath puts p on the clipboard (OSC 52). Paths that would not survive
+// display unchanged are refused: a newline in a hostile filename runs
+// commands when pasted into a shell, and bidi controls disguise them.
+func (m *Model) copyPath(p string) tea.Cmd {
+	if textutil.Sanitize(p) != p {
+		return m.warn("Not copied: path contains control or bidi characters")
 	}
 	return tea.Batch(tea.SetClipboard(p), m.info("Copied path to clipboard (OSC 52)"))
 }
