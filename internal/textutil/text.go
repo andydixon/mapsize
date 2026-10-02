@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/rivo/uniseg"
 )
 
@@ -52,8 +53,40 @@ func isBidiControl(r rune) bool {
 		r == 0x200e || r == 0x200f || r == 0x061c
 }
 
+// Clusters calls fn for each grapheme cluster of s with its display width.
+// Clusters whose width terminals disagree on (per-rune wcwidth versus
+// grapheme width, e.g. emoji ZWJ sequences) are replaced by U+FFFD with
+// width 1, and zero-width clusters are dropped, so that measuring and
+// drawing always agree with the terminal. fn returns false to stop.
+func Clusters(s string, fn func(c string, w int) bool) {
+	state := -1
+	for s != "" {
+		var c string
+		var w int
+		c, s, w, state = uniseg.FirstGraphemeClusterInString(s, state)
+		if w == 0 {
+			continue
+		}
+		if len(c) > 1 && ansi.WcWidth.StringWidth(c) != w {
+			c, w = "\uFFFD", 1
+		}
+		if !fn(c, w) {
+			return
+		}
+	}
+}
+
 // Width returns the display width of s in terminal cells.
-func Width(s string) int { return uniseg.StringWidth(s) }
+func Width(s string) int {
+	n := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] >= 0x7f {
+			Clusters(s, func(_ string, w int) bool { n += w; return true })
+			return n
+		}
+	}
+	return len(s)
+}
 
 // Truncate clips s to at most w cells, appending "…" if anything was cut.
 func Truncate(s string, w int) string {
@@ -77,33 +110,35 @@ func TruncateLeft(s string, w int) string {
 		return s
 	}
 	skip := total - (w - 1)
-	state := -1
-	rest := s
-	for rest != "" && skip > 0 {
-		var cw int
-		_, rest, cw, state = uniseg.FirstGraphemeClusterInString(rest, state)
-		skip -= cw
-	}
-	// A wide cluster may have overshot by one cell; pad to keep width exact.
-	return "…" + strings.Repeat(" ", -skip) + rest
+	var b strings.Builder
+	Clusters(s, func(c string, cw int) bool {
+		if skip > 0 {
+			skip -= cw
+			if skip < 0 {
+				// A wide cluster overshot by one cell; pad to keep width exact.
+				b.WriteString(strings.Repeat(" ", -skip))
+			}
+			return true
+		}
+		b.WriteString(c)
+		return true
+	})
+	return "…" + b.String()
 }
 
 // clip returns the longest prefix of s that fits in w cells.
 func clip(s string, w int) string {
-	state := -1
-	used, end := 0, 0
-	rest := s
-	for rest != "" {
-		var cluster string
-		var cw int
-		cluster, rest, cw, state = uniseg.FirstGraphemeClusterInString(rest, state)
+	var b strings.Builder
+	used := 0
+	Clusters(s, func(c string, cw int) bool {
 		if used+cw > w {
-			break
+			return false
 		}
 		used += cw
-		end += len(cluster)
-	}
-	return s[:end]
+		b.WriteString(c)
+		return true
+	})
+	return b.String()
 }
 
 // PadRight pads s with spaces to exactly w cells (truncating if longer).

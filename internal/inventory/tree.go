@@ -51,6 +51,7 @@ const (
 	FlagAllocUnknown                   // platform cannot report allocated size
 	FlagBrokenLink                     // symlink target does not exist
 	FlagHardlinked                     // regular file with link count > 1
+	FlagDeleted                        // moved to trash from the UI
 )
 
 // Node is one filesystem object. Sizes are own sizes; Tot* fields are

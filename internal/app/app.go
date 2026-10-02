@@ -36,6 +36,7 @@ type Config struct {
 	Theme        string
 	SizeMode     inventory.SizeMode
 	Mouse        bool
+	Color        string
 	Settings     config.Settings
 	Stdout       io.Writer
 	Stderr       io.Writer

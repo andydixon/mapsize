@@ -203,6 +203,7 @@ type controller struct {
 }
 
 func (c *controller) run(ctx context.Context) {
+	defer guard()
 	defer close(c.s.done)
 	jobs := make(chan *job, c.opts.JobBuffer)
 	results := make(chan result, c.opts.ResultBuf)
@@ -211,6 +212,7 @@ func (c *controller) run(ctx context.Context) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			defer guard()
 			worker(ctx, jobs, results, c.opts.ChunkSize)
 		}()
 	}

@@ -62,3 +62,13 @@ func TestSize(t *testing.T) {
 		t.Errorf("SignedSize got %q", got)
 	}
 }
+
+func TestClustersAgreeWithWidth(t *testing.T) {
+	for _, s := range []string{"abc", "日本", "é", "👨‍👩‍👧", "🎉x", "​"} {
+		n := 0
+		Clusters(s, func(_ string, w int) bool { n += w; return true })
+		if n != Width(s) {
+			t.Errorf("%q: clusters %d width %d", s, n, Width(s))
+		}
+	}
+}

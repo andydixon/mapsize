@@ -55,6 +55,7 @@ func run(args []string) int {
 		si         = fs.Bool("si", settings.Units == "si", "use SI units (kB, MB) instead of IEC (KiB, MiB)")
 		logical    = fs.Bool("apparent", settings.SizeMode == "logical", "size by logical (apparent) size instead of disk usage")
 		theme      = fs.String("theme", settings.Theme, "colour theme: default, dark, high-contrast, mono")
+		colorMode  = fs.String("color", "auto", "colour support: auto, truecolor, 256, 16, none")
 		noMouse    = fs.Bool("no-mouse", !settings.Mouse, "disable mouse support")
 		logFile    = fs.String("log", "", "write a debug log to `FILE`")
 		logLevel   = fs.String("log-level", "info", "log level: error, warn, info, debug, trace")
@@ -117,7 +118,7 @@ func run(args []string) int {
 
 	cfg := &app.Config{
 		NoUI: *noUI, JSON: *jsonOut, CSV: *csvOut, Depth: *depth, Top: *top, LargestFiles: *largest,
-		Duplicates: *dups, ReadOnly: *readOnly, Theme: *theme, Mouse: !*noMouse, Load: *load,
+		Duplicates: *dups, ReadOnly: *readOnly, Theme: *theme, Mouse: !*noMouse, Color: *colorMode, Load: *load,
 		Settings: settings,
 	}
 	if *logical {

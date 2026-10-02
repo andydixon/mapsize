@@ -2,17 +2,22 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/andydixon/mapsize/internal/duplicate"
 	"github.com/andydixon/mapsize/internal/inventory"
+	"github.com/andydixon/mapsize/internal/scan"
 	"github.com/andydixon/mapsize/internal/snapshot"
 	"github.com/andydixon/mapsize/internal/textutil"
+	"github.com/andydixon/mapsize/internal/tui"
 )
 
-func runTUI(*Config) error {
-	return errors.New("the interactive UI is not built yet; use --no-ui, --top, --json or --csv")
+func runTUI(cfg *Config) error {
+	return tui.Run(tui.Options{
+		ReadOnly: cfg.ReadOnly, Theme: cfg.Theme, SizeMode: cfg.SizeMode, Mouse: cfg.Mouse, Color: cfg.Color,
+		Save: cfg.Save, Settings: cfg.Settings,
+		Start: func(ctx context.Context) (*scan.Scanner, *inventory.Tree, error) { return startSource(ctx, cfg) },
+	})
 }
 
 func loadSnapshot(path string) (*inventory.Tree, error) { return snapshot.LoadFile(path) }
