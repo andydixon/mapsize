@@ -29,7 +29,7 @@ func Reveal(path string) error {
 // Trash moves path to the freedesktop.org trash: the home trash when on the
 // same filesystem, otherwise $topdir/.Trash-$uid on the item's filesystem.
 // It never copies across filesystems and never deletes.
-func Trash(path string) error {
+func Trash(path string, want Expect) error {
 	if err := checkAbs(path); err != nil {
 		return err
 	}
@@ -99,38 +99,13 @@ func Trash(path string) error {
 			os.Remove(ip)
 			return errors.Join(werr, cerr)
 		}
-		if err := os.Rename(path, dst); err != nil {
+		if err := renameChecked(path, dst, want); err != nil {
 			os.Remove(ip)
 			return err
 		}
 		return nil
 	}
 	return errors.New("trash: too many items with the same name")
-}
-
-// ensurePrivateDir creates dir (mode 0700) if missing; an existing entry must
-// be a real directory (not a symlink) owned by us. With strict (trash on a
-// shared filesystem) it must also be inaccessible to others, as the
-// freedesktop.org spec requires; home trash directories made by desktop
-// environments are sometimes 0755, which is harmless there.
-func ensurePrivateDir(dir string, strict bool) error {
-	if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
-		return err
-	}
-	fi, err := os.Lstat(dir)
-	if err != nil {
-		return err
-	}
-	st := fi.Sys().(*syscall.Stat_t)
-	switch {
-	case !fi.IsDir():
-		return errors.New("not a directory (symlink?)")
-	case int(st.Uid) != os.Getuid():
-		return errors.New("owned by another user")
-	case strict && fi.Mode().Perm()&0o077 != 0:
-		return errors.New("accessible to other users")
-	}
-	return nil
 }
 
 // mountTop returns the top directory of the filesystem containing path.

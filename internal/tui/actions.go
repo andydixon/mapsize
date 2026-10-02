@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -39,6 +40,7 @@ func (m *Model) requestTrash() tea.Cmd {
 	}
 	n := m.tree.Node(id)
 	path := m.tree.Path(id)
+	want := platform.Expect{UID: n.UID, Mode: fs.FileMode(n.Mode)}
 	what := "file"
 	if n.IsDir() {
 		what = fmt.Sprintf("directory with %s files", textutil.Count(int64(n.Files)))
@@ -51,7 +53,7 @@ func (m *Model) requestTrash() tea.Cmd {
 		yes: "move to " + platform.TrashName,
 		onYes: func(m *Model) tea.Cmd {
 			t := m.tree
-			return func() tea.Msg { return trashDoneMsg{t, id, platform.Trash(path)} }
+			return func() tea.Msg { return trashDoneMsg{t, id, platform.Trash(path, want)} }
 		},
 	})
 	return nil

@@ -2,6 +2,7 @@ package platform
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,13 @@ func startDetached(name string, args ...string) error {
 	}
 	go cmd.Wait()
 	return nil
+}
+
+// Expect is what the scan recorded for an item about to be trashed. Trash
+// refuses an item whose owner or file type no longer matches.
+type Expect struct {
+	UID  uint32
+	Mode fs.FileMode // only the type bits are compared
 }
 
 // checkAbs guards helper invocations: an absolute path can never be parsed

@@ -45,8 +45,9 @@ const (
 )
 
 // Trash moves path to the Recycle Bin via SHFileOperationW with
-// FOF_ALLOWUNDO. It never deletes permanently.
-func Trash(path string) error {
+// FOF_ALLOWUNDO. It never deletes permanently. want is not checked here:
+// Windows exposes no owner or inode identity through the scan.
+func Trash(path string, _ Expect) error {
 	if err := checkAbs(path); err != nil {
 		return err
 	}

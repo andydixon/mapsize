@@ -11,4 +11,4 @@ const TrashName = "trash"
 func Reveal(string) error { return errors.New("not supported on this platform") }
 
 // Trash is unsupported on this platform.
-func Trash(string) error { return errors.New("trash not supported on this platform") }
+func Trash(string, Expect) error { return errors.New("trash not supported on this platform") }
