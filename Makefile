@@ -32,13 +32,29 @@ fuzz:
 	go test -run=NONE -fuzz=FuzzSquarify -fuzztime=30s ./internal/treemap
 	go test -run=NONE -fuzz=FuzzParse -fuzztime=30s ./internal/filter
 
+# Cross-built archives plus .deb/.rpm/.apk/Arch packages in $(BIN)/release.
+REL     := $(BIN)/release
+NFPM    := go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.41.1
 release:
-	@for t in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do \
+	rm -rf $(REL) && mkdir -p $(REL)
+	@set -e; v=$(VERSION); v=$${v#v}; \
+	for t in linux/amd64 linux/arm64 linux/386 linux/arm darwin/amd64 darwin/arm64 \
+	         windows/amd64 windows/arm64 freebsd/amd64 freebsd/arm64 openbsd/amd64 netbsd/amd64; do \
 		os=$${t%/*}; arch=$${t#*/}; ext=; [ $$os = windows ] && ext=.exe; \
-		echo "$$os/$$arch"; \
-		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags '$(LDFLAGS)' \
-			-o $(BIN)/release/mapsize-$(VERSION)-$$os-$$arch$$ext ./cmd/mapsize || exit 1; \
-	done
+		name=mapsize-$$v-$$os-$$arch; d=$(REL)/$$name; echo "$$os/$$arch"; mkdir -p $$d; \
+		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch GOARM=7 go build -trimpath \
+			-ldflags '$(LDFLAGS) -X github.com/andydixon/mapsize/internal/brand.Version='$$v \
+			-o $$d/mapsize$$ext ./cmd/mapsize; \
+		cp README.md CHANGELOG.md $$d/; \
+		if [ $$os = windows ]; then (cd $(REL) && zip -qr $$name.zip $$name); \
+		else tar -C $(REL) -czf $(REL)/$$name.tar.gz $$name; fi; \
+		if [ $$os = linux ]; then mkdir -p $(REL)/pkg && cp $$d/mapsize $(REL)/pkg/; \
+			a=$$arch; [ $$a = arm ] && a=arm7; \
+			for f in deb rpm apk archlinux; do \
+			VERSION=$$v ARCH=$$a $(NFPM) pkg -f nfpm.yaml -p $$f -t $(REL)/; done; rm -rf $(REL)/pkg; fi; \
+		rm -rf $$d; \
+	done; \
+	cd $(REL) && sha256sum * > SHA256SUMS
 
 clean:
 	rm -rf $(BIN)

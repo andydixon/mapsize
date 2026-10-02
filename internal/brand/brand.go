@@ -5,5 +5,7 @@ const (
 	Name          = "mapsize"
 	SnapshotExt   = ".msz"
 	SnapshotMagic = "MAPSIZE\x00"
-	Version       = "0.9.0-dev"
 )
+
+// Version is stamped at release time via -ldflags -X.
+var Version = "0.9.0-dev"
