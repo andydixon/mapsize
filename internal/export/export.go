@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -158,7 +159,7 @@ func CSV(w io.Writer, t *inventory.Tree, root inventory.NodeID, maxDepth int) er
 			return nil
 		}
 		for _, c := range t.SortedChildren(id, inventory.SizeAllocated) {
-			if err := rec(c, path+"/"+t.Node(c).Name, depth-1); err != nil {
+			if err := rec(c, filepath.Join(path, t.Node(c).Name), depth-1); err != nil {
 				return err
 			}
 		}

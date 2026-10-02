@@ -237,6 +237,12 @@ func TestExcludes(t *testing.T) {
 	if tr.Stats.Excluded != 2 || tr.Node(0).Files != 1 {
 		t.Fatalf("excluded=%d files=%d", tr.Stats.Excluded, tr.Node(0).Files)
 	}
+	// Relative path patterns resolve against the working directory.
+	t.Chdir(root)
+	tr = runScan(t, root, Options{Workers: 2, Excludes: []string{"./skip"}})
+	if tr.Stats.Excluded != 1 {
+		t.Fatalf("relative exclude: excluded=%d", tr.Stats.Excluded)
+	}
 }
 
 func TestUnicodeAndHostileNames(t *testing.T) {

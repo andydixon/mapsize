@@ -138,6 +138,17 @@ type inodeKey struct{ dev, ino uint64 }
 // Start stats root, creates the tree and begins scanning in the background.
 func Start(ctx context.Context, root string, opts Options) (*Scanner, error) {
 	opts.defaults()
+	// Path-style exclusions are matched against absolute paths.
+	excl := make([]string, len(opts.Excludes))
+	for i, p := range opts.Excludes {
+		excl[i] = p
+		if strings.ContainsAny(p, `/\`) {
+			if a, err := filepath.Abs(p); err == nil {
+				excl[i] = a
+			}
+		}
+	}
+	opts.Excludes = excl
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err

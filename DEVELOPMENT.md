@@ -21,6 +21,26 @@ bin/treegen --out /tmp/t --directories 50000 --files 1000000 --max-depth 20 --sp
 bin/mapsize /tmp/t
 ```
 
+## Benchmarks
+
+```sh
+make benchmark                          # Go micro-benchmarks (layout, render, filter, scan)
+scripts/bench-scan.sh /path 1 2 4 8     # wall time and peak RSS per worker count
+sudo DROP_CACHES=1 scripts/bench-scan.sh /path   # cold-cache runs
+MAPSIZE_MEM_ROOT=/path go test ./internal/scan -run TestMemoryPerNode -v
+```
+
+Paste results into PERFORMANCE.md with the machine description. Never edit
+numbers by hand.
+
+## Terminal restoration checks
+
+```sh
+MAPSIZE_DEBUG_PANIC=ui bin/mapsize .        # panics on the first key press
+MAPSIZE_DEBUG_PANIC=scanner bin/mapsize /   # panics in a scanner goroutine
+stty -a                                     # echo/icanon must be back on
+```
+
 ## Profiling
 
 ```sh
