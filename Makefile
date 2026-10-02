@@ -4,7 +4,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w
 PREFIX  ?= /usr/local
 
-.PHONY: build install man test race vet fmt fmt-check benchmark fuzz release clean treegen
+.PHONY: build install man brew-formula test race vet fmt fmt-check benchmark fuzz release clean treegen
 
 build:
 	go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/mapsize ./cmd/mapsize
@@ -53,7 +53,7 @@ release:
 		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch GOARM=7 go build -trimpath \
 			-ldflags '$(LDFLAGS) -X github.com/andydixon/mapsize/internal/brand.Version='$$v \
 			-o $$d/mapsize$$ext ./cmd/mapsize; \
-		cp README.md CHANGELOG.md $$d/; \
+		cp README.md CHANGELOG.md docs/mapsize.1 $$d/; \
 		if [ $$os = windows ]; then (cd $(REL) && zip -qr $$name.zip $$name); \
 		else tar -C $(REL) -czf $(REL)/$$name.tar.gz $$name; fi; \
 		if [ $$os = linux ]; then mkdir -p $(REL)/pkg && cp $$d/mapsize $(REL)/pkg/; \
@@ -63,6 +63,18 @@ release:
 		rm -rf $$d; \
 	done; \
 	cd $(REL) && sha256sum * > SHA256SUMS
+
+# Homebrew formula for the tagged release. The tag must already be pushed:
+# the checksum is of GitHub's source tarball for that tag.
+BREW_REPO := https://github.com/andydixon/mapsize
+brew-formula:
+	@set -e; v=$(VERSION); v=$${v#v}; \
+	case $$v in *-*) echo "brew-formula: HEAD is not exactly a release tag ($$v)"; exit 1;; esac; \
+	url=$(BREW_REPO)/archive/refs/tags/v$$v.tar.gz; \
+	sum=$$(curl -fsSL "$$url" | sha256sum | cut -d' ' -f1) || { echo "cannot fetch $$url (tag pushed?)"; exit 1; }; \
+	mkdir -p $(BIN)/homebrew; \
+	sed -e "s/@VERSION@/$$v/g" -e "s/@SHA256@/$$sum/" packaging/homebrew/mapsize.rb.in > $(BIN)/homebrew/mapsize.rb; \
+	echo "wrote $(BIN)/homebrew/mapsize.rb (v$$v, sha256 $$sum)"
 
 clean:
 	rm -rf $(BIN)
