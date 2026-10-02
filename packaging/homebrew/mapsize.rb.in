@@ -4,16 +4,16 @@
 # (github.com/andydixon/homebrew-tap, Formula/mapsize.rb).
 class Mapsize < Formula
   desc "Interactive terminal disk usage analyser with a navigable treemap"
-  homepage "https://dixon.cx"
-  license "GPL-3.0-or-later"
+  homepage "https://github.com/andydixon/mapsize"
   url "https://github.com/andydixon/mapsize/archive/refs/tags/v@VERSION@.tar.gz"
   sha256 "@SHA256@"
+  license "GPL-3.0-or-later"
   head "https://github.com/andydixon/mapsize.git", branch: "master"
 
   depends_on "go" => :build
 
   def install
-    ldflags = "-s -w -X github.com/andydixon/mapsize/internal/brand.Version=#{version}"
+    ldflags = "-X github.com/andydixon/mapsize/internal/brand.Version=#{version}"
     system "go", "build", *std_go_args(ldflags:), "./cmd/mapsize"
     man1.install "docs/mapsize.1"
   end

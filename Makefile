@@ -73,7 +73,7 @@ brew-formula:
 	url=$(BREW_REPO)/archive/refs/tags/v$$v.tar.gz; \
 	sum=$$(curl -fsSL "$$url" | sha256sum | cut -d' ' -f1) || { echo "cannot fetch $$url (tag pushed?)"; exit 1; }; \
 	mkdir -p $(BIN)/homebrew; \
-	sed -e "s/@VERSION@/$$v/g" -e "s/@SHA256@/$$sum/" packaging/homebrew/mapsize.rb.in > $(BIN)/homebrew/mapsize.rb; \
+	sed -e '/^#/d' -e "s/@VERSION@/$$v/g" -e "s/@SHA256@/$$sum/" packaging/homebrew/mapsize.rb.in > $(BIN)/homebrew/mapsize.rb; \
 	echo "wrote $(BIN)/homebrew/mapsize.rb (v$$v, sha256 $$sum)"
 
 clean:
