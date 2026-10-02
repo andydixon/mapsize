@@ -165,8 +165,7 @@ func fmtTime(ns int64) string { return time.Unix(0, ns).Format("2006-01-02 15:04
 func (md *infoModal) key(m *Model, k string) (bool, tea.Cmd) {
 	switch k {
 	case "c":
-		p := m.tree.Path(md.id)
-		return false, tea.Batch(tea.SetClipboard(p), m.info("Copied path to clipboard"))
+		return false, m.copyPath(m.tree.Path(md.id))
 	case "o":
 		m.sel = int64(md.id)
 		return false, m.reveal()

