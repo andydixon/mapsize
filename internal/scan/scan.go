@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -358,6 +359,7 @@ func (c *controller) apply(r *result, cancelled bool) bool {
 			dn.Flags |= inventory.FlagIncomplete
 			t.Stats.Unscanned++
 		default:
+			slog.Debug("read directory failed", "path", j.path, "err", r.err)
 			dn.Flags |= inventory.FlagError | inventory.FlagIncomplete
 			t.Stats.AddError(inventory.ErrorRecord{Node: dir, Kind: inventory.Classify(r.err), Msg: errMsg(r.err)})
 			d.Errors++

@@ -1,6 +1,9 @@
 package tui
 
-import "sync"
+import (
+	"math"
+	"sync"
+)
 
 // The stock 256-colour conversion maps dark, slightly tinted colours to
 // saturated cube entries (olive, navy), which wrecks the subtle shading the
@@ -24,7 +27,7 @@ func quant256(c Color) uint8 {
 		return v.(uint8)
 	}
 	r, g, b := int(c>>16&0xff), int(c>>8&0xff), int(c&0xff)
-	best, bestD := 16, 1<<62
+	best, bestD := 16, math.MaxInt
 	for i := 0; i < 216; i++ {
 		cr, cg, cb := cubeLevels[i/36], cubeLevels[i/6%6], cubeLevels[i%6]
 		if d := redmean(r, g, b, cr, cg, cb); d < bestD {

@@ -25,6 +25,6 @@ jobs:
       - name: cross-build
         if: runner.os == 'Linux'
         run: |
-          for t in linux/arm64 darwin/arm64 windows/amd64 freebsd/amd64; do
+          for t in linux/arm64 linux/386 darwin/arm64 windows/amd64 freebsd/amd64; do
             GOOS=${t%/*} GOARCH=${t#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/mapsize
           done

@@ -10,6 +10,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -324,6 +325,8 @@ func (m *Model) scanFinished() tea.Cmd {
 	errs := st.TotalErrors()
 	el := st.Elapsed()
 	t.RUnlock()
+	slog.Info("scan finished", "files", files, "dirs", st.Dirs, "bytes", total, "errors", errs,
+		"cancelled", st.Cancelled, "elapsed", el)
 	var cmds []tea.Cmd
 	rate := float64(files+st.Dirs) / max(el.Seconds(), 0.001)
 	msg := fmt.Sprintf("✓ Scan complete  %s  ·  %s files  ·  %s dirs  ·  %s  ·  %s/s",
