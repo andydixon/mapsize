@@ -176,7 +176,13 @@ func Start(ctx context.Context, root string, opts Options) (*Scanner, error) {
 	}
 	t.Stats.Dirs = 1
 	c := &controller{s: s, t: t, opts: opts, links: map[inodeKey]struct{}{}}
-	if opts.Follow != FollowNone {
+	// Loop detection needs inode identity; without it (Windows and other
+	// portable-fallback platforms) symlinks are not followed at all.
+	if opts.Follow != FollowNone && !m.HasIno {
+		c.opts.Follow = FollowNone
+		t.Stats.Follow = "none (no inode identity on this platform)"
+	}
+	if c.opts.Follow != FollowNone {
 		c.visited = map[inodeKey]struct{}{{m.Dev, m.Ino}: {}}
 	}
 	c.rootDev = m.Dev
@@ -271,7 +277,7 @@ func (c *controller) run(ctx context.Context) {
 			}
 			c.t.Lock()
 			for i := range batch {
-				if c.apply(&batch[i], cancelled) {
+				if c.apply(&batch[i]) {
 					inflight--
 				}
 				batch[i] = result{}
@@ -292,7 +298,7 @@ func (c *controller) run(ctx context.Context) {
 	st := &c.t.Stats
 	if cancelled {
 		st.Cancelled = true
-		st.Unscanned = int64(len(c.pending) - c.head)
+		st.Unscanned += int64(len(c.pending) - c.head)
 		for _, p := range c.pending[c.head:] {
 			c.t.Node(p.id).Flags |= inventory.FlagIncomplete
 		}
@@ -352,7 +358,7 @@ func setMeta(n *inventory.Node, m platform.Meta) {
 
 // apply merges one result into the tree. It reports whether the result
 // completed its directory. Called with the tree write-locked.
-func (c *controller) apply(r *result, cancelled bool) bool {
+func (c *controller) apply(r *result) bool {
 	t := c.t
 	j := r.job
 	dir := j.id
@@ -366,7 +372,7 @@ func (c *controller) apply(r *result, cancelled bool) bool {
 		switch {
 		case r.err == nil:
 			dn.Flags |= inventory.FlagScanned
-		case errors.Is(r.err, context.Canceled) || errors.Is(r.err, context.DeadlineExceeded) || cancelled:
+		case errors.Is(r.err, context.Canceled) || errors.Is(r.err, context.DeadlineExceeded):
 			dn.Flags |= inventory.FlagIncomplete
 			t.Stats.Unscanned++
 		default:
@@ -447,7 +453,7 @@ func (c *controller) addEntry(j *job, m platform.Meta, d *inventory.Delta) {
 		case err != nil:
 			st.BrokenLinks++
 			broken = true
-		case tm.Mode.IsDir() && (c.opts.Follow == FollowAll || c.opts.Follow == FollowSameFS && tm.Dev == j.dev):
+		case tm.Mode.IsDir() && tm.HasIno && (c.opts.Follow == FollowAll || c.opts.Follow == FollowSameFS && tm.Dev == j.dev):
 			target, followed = tm, true
 			kind = inventory.KindDir
 		}

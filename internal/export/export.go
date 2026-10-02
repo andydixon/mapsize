@@ -10,6 +10,7 @@ import (
 	"io"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/andydixon/mapsize/internal/brand"
@@ -203,7 +204,7 @@ func Summary(w io.Writer, t *inventory.Tree) {
 		}
 	}
 	if st.Excluded > 0 {
-		fmt.Fprintf(w, "Excluded        %s entries (%v)\n", textutil.Count(st.Excluded), st.Excludes)
+		fmt.Fprintf(w, "Excluded        %s entries (%s)\n", textutil.Count(st.Excluded), textutil.Sanitize(strings.Join(st.Excludes, ", ")))
 	}
 	if st.SkippedMounts > 0 {
 		fmt.Fprintf(w, "Other FS skipped %s\n", textutil.Count(st.SkippedMounts))

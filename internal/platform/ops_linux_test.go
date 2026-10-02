@@ -42,3 +42,23 @@ func TestTrashFreedesktop(t *testing.T) {
 		t.Fatal("relative paths must be refused")
 	}
 }
+
+func TestEnsurePrivateDirRejectsSymlink(t *testing.T) {
+	base := t.TempDir()
+	target := filepath.Join(base, "attacker")
+	os.Mkdir(target, 0o700)
+	link := filepath.Join(base, ".Trash-1000")
+	os.Symlink(target, link)
+	if err := ensurePrivateDir(link, false); err == nil {
+		t.Fatal("symlinked trash dir accepted")
+	}
+	open := filepath.Join(base, "open")
+	os.Mkdir(open, 0o777)
+	os.Chmod(open, 0o777)
+	if err := ensurePrivateDir(open, true); err == nil {
+		t.Fatal("world-accessible trash dir accepted")
+	}
+	if err := ensurePrivateDir(filepath.Join(base, "fresh"), true); err != nil {
+		t.Fatal(err)
+	}
+}

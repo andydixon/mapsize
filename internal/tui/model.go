@@ -378,10 +378,22 @@ func (m *Model) rescan() tea.Cmd {
 	m.scanner, m.tree, m.cancel, m.scanning, m.ctrlC = s, t, cancel, s != nil, false
 	m.zoom, m.sel = t.Root(), noSel
 	m.kidsCache = map[inventory.NodeID]*kids{}
-	m.dups = nil
+	if m.dups != nil {
+		m.dups.cancel()
+		m.dups = nil
+		// Drop the duplicates view: its rows referred to the old tree.
+		for i, v := range m.views {
+			if _, ok := v.(*dupView); ok {
+				m.views = append(m.views[:i], m.views[i+1:]...)
+				m.view = 0
+				break
+			}
+		}
+	}
 	m.search.result = nil
+	m.search.gen++ // results computed against the old tree are discarded
 	m.invalidate()
-	return tea.Batch(waitScan(s), m.startTicking(), m.info("Rescanning…"))
+	return tea.Batch(waitScan(s), m.startTicking(), m.info("Rescanning…"), m.applyFilter())
 }
 
 // resolvePendingZoom re-zooms into the remembered directory once the new

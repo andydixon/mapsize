@@ -47,13 +47,18 @@ const Version = 1
 
 // Limits applied when reading untrusted snapshots.
 const (
-	MaxNodes    = 1<<31 - 1
-	MaxNameLen  = 1 << 16
-	MaxMetaLen  = 16 << 20
-	MaxExtLen   = 64
-	MaxMsgLen   = 4096
-	maxExts     = 1<<16 - 1
-	flagGzipped = 1
+	MaxNodes = 1<<31 - 1
+	MaxDepth = 4096    // far beyond any real path; bounds recursion in exporters
+	MaxSize  = 1 << 60 // per-node size cap (1 EiB); keeps aggregates from overflowing
+	// DefaultMaxBody caps the decompressed body for Load. LoadFile uses a
+	// limit proportional to the file size instead (see bodyLimit).
+	DefaultMaxBody = 4 << 30
+	MaxNameLen     = 1 << 16
+	MaxMetaLen     = 16 << 20
+	MaxExtLen      = 64
+	MaxMsgLen      = 4096
+	maxExts        = 1<<16 - 1
+	flagGzipped    = 1
 )
 
 type meta struct {
@@ -305,8 +310,35 @@ func (r *reader) str(max uint64, what string) string {
 	return string(r.bytesN(r.uvarint(max, what+" length")))
 }
 
-// Load reads and validates a snapshot.
-func Load(in io.Reader) (*inventory.Tree, error) {
+// limitedReader fails (rather than silently truncating) past n bytes, so a
+// decompression bomb is reported as such.
+type limitedReader struct {
+	r io.Reader
+	n int64
+}
+
+func (l *limitedReader) Read(p []byte) (int, error) {
+	if l.n <= 0 {
+		return 0, errors.New("snapshot: decompressed size exceeds limit (possible decompression bomb)")
+	}
+	if int64(len(p)) > l.n {
+		p = p[:l.n]
+	}
+	n, err := l.r.Read(p)
+	l.n -= int64(n)
+	return n, err
+}
+
+// bodyLimit allows decompressed bodies up to 64× the compressed file size
+// (real snapshots compress ~6×), with a 64 MiB floor for tiny files.
+func bodyLimit(fileSize int64) int64 { return max(64<<20, fileSize*64) }
+
+// Load reads and validates a snapshot, allowing up to DefaultMaxBody bytes
+// of decompressed data.
+func Load(in io.Reader) (*inventory.Tree, error) { return LoadLimit(in, DefaultMaxBody) }
+
+// LoadLimit is Load with an explicit decompressed-size limit.
+func LoadLimit(in io.Reader, maxBody int64) (*inventory.Tree, error) {
 	br := bufio.NewReaderSize(in, 1<<20)
 	hdr := make([]byte, len(brand.SnapshotMagic)+4)
 	if _, err := io.ReadFull(br, hdr); err != nil {
@@ -333,7 +365,7 @@ func Load(in io.Reader) (*inventory.Tree, error) {
 	pr, pw := io.Pipe()
 	defer pr.Close() // unblocks the copier if we bail out early
 	go func() {
-		_, err := io.CopyBuffer(pw, io.TeeReader(gz, h), make([]byte, 256<<10))
+		_, err := io.CopyBuffer(pw, io.TeeReader(&limitedReader{gz, maxBody}, h), make([]byte, 256<<10))
 		pw.CloseWithError(err)
 	}()
 	r := &reader{r: bufio.NewReaderSize(pr, 1<<16)}
@@ -358,6 +390,7 @@ func Load(in io.Reader) (*inventory.Tree, error) {
 	}
 	extIndex := t.ExtIndexer()
 	nNodes := r.uvarint(MaxNodes, "node count")
+	depth := []uint16{0} // per node, for the depth limit; parents precede children
 	if nNodes == 0 {
 		return nil, errors.New("snapshot: no root node")
 	}
@@ -380,8 +413,8 @@ func Load(in io.Reader) (*inventory.Tree, error) {
 			r.fail("node %d: invalid kind/category", i)
 			break
 		}
-		if size < 0 || alloc < 0 {
-			r.fail("node %d: negative size", i)
+		if size < 0 || alloc < 0 || size > MaxSize || alloc > MaxSize {
+			r.fail("node %d: size out of range", i)
 			break
 		}
 		var id inventory.NodeID
@@ -407,7 +440,12 @@ func Load(in io.Reader) (*inventory.Tree, error) {
 				r.fail("node %d: invalid name %q", i, name)
 				break
 			}
+			if d := depth[parent] + 1; d > MaxDepth {
+				r.fail("node %d: deeper than %d levels", i, MaxDepth)
+				break
+			}
 			id = t.Add(parent, name, kind)
+			depth = append(depth, depth[parent]+1)
 		}
 		n := t.Node(id)
 		n.Cat, n.Flags = cat, flags
@@ -469,5 +507,9 @@ func LoadFile(path string) (*inventory.Tree, error) {
 		return nil, err
 	}
 	defer f.Close()
-	return Load(f)
+	limit := int64(DefaultMaxBody)
+	if fi, err := f.Stat(); err == nil {
+		limit = bodyLimit(fi.Size())
+	}
+	return LoadLimit(f, limit)
 }

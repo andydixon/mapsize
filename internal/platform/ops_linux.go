@@ -60,17 +60,29 @@ func Trash(path string) error {
 		infoPath = rel
 	}
 	files, info := filepath.Join(trash, "files"), filepath.Join(trash, "info")
-	if err := os.MkdirAll(files, 0o700); err != nil {
-		return err
+	if trash == home {
+		if err := os.MkdirAll(trash, 0o700); err != nil {
+			return err
+		}
+	} else if err := ensurePrivateDir(trash, true); err != nil {
+		// On a shared filesystem another user could plant a symlink or a
+		// world-writable directory here; refuse rather than follow it.
+		return fmt.Errorf("trash directory %s is unsafe: %w", trash, err)
 	}
-	if err := os.MkdirAll(info, 0o700); err != nil {
-		return err
+	for _, d := range []string{files, info} {
+		if err := ensurePrivateDir(d, trash != home); err != nil {
+			return fmt.Errorf("trash directory %s is unsafe: %w", d, err)
+		}
 	}
 	base := filepath.Base(path)
 	for i := 1; i < 10000; i++ {
 		name := base
 		if i > 1 {
 			name = fmt.Sprintf("%s.%d", base, i)
+		}
+		dst := filepath.Join(files, name)
+		if _, err := os.Lstat(dst); err == nil {
+			continue // never overwrite an earlier trashed item (even without .trashinfo)
 		}
 		ip := filepath.Join(info, name+".trashinfo")
 		f, err := os.OpenFile(ip, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
@@ -87,13 +99,38 @@ func Trash(path string) error {
 			os.Remove(ip)
 			return errors.Join(werr, cerr)
 		}
-		if err := os.Rename(path, filepath.Join(files, name)); err != nil {
+		if err := os.Rename(path, dst); err != nil {
 			os.Remove(ip)
 			return err
 		}
 		return nil
 	}
 	return errors.New("trash: too many items with the same name")
+}
+
+// ensurePrivateDir creates dir (mode 0700) if missing; an existing entry must
+// be a real directory (not a symlink) owned by us. With strict (trash on a
+// shared filesystem) it must also be inaccessible to others, as the
+// freedesktop.org spec requires; home trash directories made by desktop
+// environments are sometimes 0755, which is harmless there.
+func ensurePrivateDir(dir string, strict bool) error {
+	if err := os.Mkdir(dir, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
+		return err
+	}
+	fi, err := os.Lstat(dir)
+	if err != nil {
+		return err
+	}
+	st := fi.Sys().(*syscall.Stat_t)
+	switch {
+	case !fi.IsDir():
+		return errors.New("not a directory (symlink?)")
+	case int(st.Uid) != os.Getuid():
+		return errors.New("owned by another user")
+	case strict && fi.Mode().Perm()&0o077 != 0:
+		return errors.New("accessible to other users")
+	}
+	return nil
 }
 
 // mountTop returns the top directory of the filesystem containing path.

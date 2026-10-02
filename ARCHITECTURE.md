@@ -152,7 +152,9 @@ releases the lock between batches). This is the only lock in the data path.
   own (tiny) size. `same-filesystem` / `all` follow directory symlinks; every
   descended directory's `(dev, inode)` is recorded and a directory already
   visited is never descended twice — loops terminate and nothing is counted
-  twice.
+  twice. On platforms without inode identity (Windows, other portable
+  fallbacks) loop detection is impossible, so symlinks are never followed
+  there and scan info says so.
 * A directory whose device differs from its parent is flagged `MountPoint`.
   With `--one-file-system` it is not descended. On Linux, virtual filesystems
   (proc, sysfs, cgroup, debugfs, …) are never descended — `/proc/kcore` would
@@ -292,9 +294,11 @@ Filenames and snapshot contents are untrusted.
 * Text is clipped by display width (grapheme clusters, East-Asian wide
   characters) so labels never overflow their rectangle.
 * Snapshot decoding validates magic, version, every length, every parent
-  reference (a parent must precede its child, so cycles and recursion are
-  impossible), caps decompressed size and node count, and verifies a SHA-256
-  trailer. Aggregates are recomputed rather than trusted.
+  reference (a parent must precede its child, so cycles are impossible),
+  depth (≤ 4096 levels, bounding recursion in exporters), per-node sizes
+  (≤ 1 EiB) and node count; caps the decompressed body at 64× the file size
+  (decompression bombs fail fast); and verifies a SHA-256 trailer.
+  Aggregates are recomputed with saturating arithmetic rather than trusted.
 * No shell is ever invoked. "Open/reveal" and trash use direct `exec` with
   argument vectors or native APIs; paths are passed as single arguments.
 * `--read-only` disables every mutating action in the UI.

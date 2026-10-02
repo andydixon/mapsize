@@ -17,8 +17,9 @@ import (
 // ---- Trash ---------------------------------------------------------------
 
 type trashDoneMsg struct {
-	id  inventory.NodeID
-	err error
+	tree *inventory.Tree // the tree id belongs to; results for a replaced tree are dropped
+	id   inventory.NodeID
+	err  error
 }
 
 // requestTrash asks for confirmation before moving the selection to the
@@ -49,7 +50,8 @@ func (m *Model) requestTrash() tea.Cmd {
 			"", "It will be moved to the " + platform.TrashName + ", not permanently deleted."},
 		yes: "move to " + platform.TrashName,
 		onYes: func(m *Model) tea.Cmd {
-			return func() tea.Msg { return trashDoneMsg{id, platform.Trash(path)} }
+			t := m.tree
+			return func() tea.Msg { return trashDoneMsg{t, id, platform.Trash(path)} }
 		},
 	})
 	return nil
@@ -58,6 +60,10 @@ func (m *Model) requestTrash() tea.Cmd {
 func (m *Model) trashDone(msg trashDoneMsg) tea.Cmd {
 	if msg.err != nil {
 		return m.warn("Trash failed: " + textutil.Sanitize(msg.err.Error()))
+	}
+	if msg.tree != m.tree || m.scanning {
+		// A rescan replaced the inventory; the new scan reflects the change.
+		return m.info("Moved to " + platform.TrashName)
 	}
 	// The scan has finished, so the UI goroutine is the tree's only writer.
 	t := m.tree
@@ -96,6 +102,7 @@ type dupState struct {
 type (
 	dupProgressMsg struct{}
 	dupDoneMsg     struct {
+		finder *duplicate.Finder // identifies the search; stale results are dropped
 		groups []duplicate.Group
 		err    error
 	}
@@ -128,7 +135,7 @@ func (m *Model) startDuplicates() tea.Cmd {
 			t := m.tree
 			return tea.Batch(m.startTicking(), func() tea.Msg {
 				g, err := f.Find(ctx, t, duplicate.Options{MinSize: 1, Workers: 4})
-				return dupDoneMsg{g, err}
+				return dupDoneMsg{f, g, err}
 			})
 		},
 	})
@@ -147,7 +154,7 @@ func (m *Model) ensureDupView() {
 }
 
 func (m *Model) dupMsg(msg tea.Msg) tea.Cmd {
-	if d, ok := msg.(dupDoneMsg); ok && m.dups != nil {
+	if d, ok := msg.(dupDoneMsg); ok && m.dups != nil && d.finder == m.dups.finder {
 		m.dups.running = false
 		m.dups.groups, m.dups.err = d.groups, d.err
 		m.dirty = true

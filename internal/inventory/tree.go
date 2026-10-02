@@ -8,6 +8,7 @@
 package inventory
 
 import (
+	"math"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -210,6 +211,14 @@ func (t *Tree) Propagate(id NodeID, d Delta) {
 	}
 }
 
+// satAdd adds non-negative int64s, saturating at the maximum.
+func satAdd(a, b int64) int64 {
+	if b > 0 && a > math.MaxInt64-b {
+		return math.MaxInt64
+	}
+	return a + b
+}
+
 func addU32(a uint32, d int64) uint32 {
 	v := int64(a) + d
 	if v < 0 {
@@ -300,23 +309,25 @@ func (t *Tree) Recompute() {
 			*t.dirs.at(n.dir) = [NumCategories]int64{}
 		}
 	}
+	// Sums saturate: snapshot data is untrusted and must not wrap to
+	// negative totals.
 	for i := t.Len() - 1; i > 0; i-- {
 		n := t.Node(NodeID(i))
 		p := t.Node(n.Parent)
-		p.TotSize += n.TotSize
-		p.TotAlloc += n.TotAlloc
-		p.Errors += n.Errors
+		p.TotSize = satAdd(p.TotSize, n.TotSize)
+		p.TotAlloc = satAdd(p.TotAlloc, n.TotAlloc)
+		p.Errors = addU32(p.Errors, int64(n.Errors))
 		cs := t.dirs.at(p.dir)
 		if n.Kind == KindDir {
-			p.Files += n.Files
-			p.Dirs += n.Dirs + 1
+			p.Files = addU32(p.Files, int64(n.Files))
+			p.Dirs = addU32(p.Dirs, int64(n.Dirs)+1)
 			for c, v := range t.dirs.at(n.dir) {
-				cs[c] += v
+				cs[c] = satAdd(cs[c], v)
 			}
 		} else {
-			p.Files++
+			p.Files = addU32(p.Files, 1)
 			if n.Flags&FlagHardlinkDup == 0 {
-				cs[n.Cat] += n.Alloc
+				cs[n.Cat] = satAdd(cs[n.Cat], n.Alloc)
 			}
 		}
 	}
