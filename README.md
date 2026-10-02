@@ -8,9 +8,10 @@ runs over SSH.
 
 ## Status
 
-Milestones 0.1–0.8 are implemented; 0.9 (hardening) is in progress. See
-[ROADMAP.md](ROADMAP.md) for detail and [PERFORMANCE.md](PERFORMANCE.md) for
-measured numbers.
+Version 1.0. See [CHANGELOG.md](CHANGELOG.md), [ROADMAP.md](ROADMAP.md) for
+what comes next, and [PERFORMANCE.md](PERFORMANCE.md) for measured numbers.
+Tested on Linux; macOS and Windows builds are produced but trash and
+file-manager integration have not yet been tested there.
 
 ## What it does
 
@@ -69,10 +70,13 @@ the map or scrolls lists. Everything works without a mouse (`--no-mouse`).
 ## Install
 
 ```sh
-go install github.com/andydixon/mapsize/cmd/mapsize@latest
+go install github.com/andydixon/mapsize/cmd/mapsize@v1.0.0
 # or
 make build   # → bin/mapsize
 sudo make install   # binary + man page under /usr/local (PREFIX=… to change)
+
+# Homebrew (macOS and Linux), once the tap is published
+brew install andydixon/tap/mapsize
 ```
 
 Full reference: `man mapsize` after installing, or `make man` /
