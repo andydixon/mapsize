@@ -43,6 +43,14 @@ Example for 1.2.0; substitute the real version throughout.
    ```
    Users get it with `brew upgrade mapsize`. Template:
    `packaging/homebrew/mapsize.rb.in`.
+6. Publish to the apt, dnf and pacman repository at repo.dixon.cx. This
+   builds signed .deb, .rpm and Arch packages from the tag and rebuilds the
+   repository indexes (needs docker, gpg, apt-ftparchive and the signing key
+   in `~/.config/repo.dixon.cx/gnupg`):
+   ```sh
+   packaging/repo.sh v1.2.0
+   ```
+   The same script, with its own project block, publishes vault.
 
 Always pass `VERSION=`: otherwise it comes from `git describe`, which only
 matches the tag when HEAD is exactly the tagged commit. `make release` and

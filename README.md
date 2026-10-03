@@ -79,6 +79,10 @@ sudo make install   # binary + man page under /usr/local (PREFIX=… to change)
 brew install andydixon/tap/mapsize
 ```
 
+On Debian, Ubuntu, Fedora, RHEL, openSUSE and Arch, `mapsize` is also in the
+signed apt, dnf and pacman repository at repo.dixon.cx, so it updates with the
+rest of the system: see https://dixon.cx/repo for the setup commands.
+
 Full reference: `man mapsize` after installing, or `make man` /
 `man -l docs/mapsize.1` from the source tree.
 
