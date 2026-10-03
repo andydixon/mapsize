@@ -43,7 +43,7 @@ const (
 	topMaxItems  = 400
 	nestMinArea  = 3
 	nestMaxItems = 120
-	maxNestDepth = 3
+	maxNestDepth = 8 // block-size thresholds stop recursion long before this
 	nestMinW     = 4
 	nestMinH     = 2
 	nestRecurseW = 14
@@ -65,7 +65,7 @@ func (m *Model) layoutTreemap(r treemap.Rect) *tmLayout {
 			in := b.Inset(1)
 			if in.W >= nestMinW && in.H >= nestMinH {
 				before := len(l.nested)
-				m.layoutNested(l, inventory.NodeID(b.ID), in, 2)
+				m.layoutNested(l, m.chainEnd(inventory.NodeID(b.ID)), in, 2)
 				l.inner[b.ID] = len(l.nested) > before
 			}
 		}
@@ -104,7 +104,7 @@ func (m *Model) layoutLevel(l *tmLayout, parent inventory.NodeID, r treemap.Rect
 
 func (m *Model) layoutNested(l *tmLayout, parent inventory.NodeID, r treemap.Rect, depth int) {
 	// Deeper levels need bigger blocks to stay legible rather than noisy.
-	blocks := m.layoutLevel(l, parent, r, nestMinArea*(depth-1)*(depth-1), nestMaxItems)
+	blocks := m.layoutLevel(l, parent, r, nestMinArea*(depth-1), nestMaxItems)
 	for i, b := range blocks {
 		nb := nested{id: b.ID, r: b.Rect, depth: depth, alt: i%2 == 1}
 		idx := len(l.nested)
@@ -112,8 +112,21 @@ func (m *Model) layoutNested(l *tmLayout, parent inventory.NodeID, r treemap.Rec
 		if depth < maxNestDepth && b.ID >= 0 && b.W >= nestRecurseW && b.H >= nestRecurseH &&
 			m.tree.Node(inventory.NodeID(b.ID)).IsDir() {
 			l.nested[idx].inner = true
-			m.layoutNested(l, inventory.NodeID(b.ID), treemap.Rect{X: b.X, Y: b.Y + 1, W: b.W - 1, H: b.H - 2}, depth+1)
+			m.layoutNested(l, m.chainEnd(inventory.NodeID(b.ID)), treemap.Rect{X: b.X, Y: b.Y + 1, W: b.W - 1, H: b.H - 2}, depth+1)
 		}
+	}
+}
+
+// chainEnd follows directories whose only non-empty child is a directory
+// (mnt → raid → media), so nesting spends its space on the level that
+// actually branches instead of on full-size wrappers.
+func (m *Model) chainEnd(id inventory.NodeID) inventory.NodeID {
+	for {
+		k := m.kidsOf(id)
+		if len(k.ids) != 1 || !m.tree.Node(k.ids[0]).IsDir() {
+			return id
+		}
+		id = k.ids[0]
 	}
 }
 
@@ -168,10 +181,15 @@ func (m *Model) blockName(id int64) string {
 		}
 		return "smaller items"
 	}
-	n := m.tree.Node(inventory.NodeID(id))
+	nid := inventory.NodeID(id)
+	n := m.tree.Node(nid)
 	name := textutil.Sanitize(n.Name)
-	if n.IsDir() && inventory.NodeID(id) != m.tree.Root() {
+	if n.IsDir() && nid != m.tree.Root() {
 		name += "/"
+		for end := m.chainEnd(nid); nid != end; {
+			nid = m.kidsOf(nid).ids[0]
+			name += textutil.Sanitize(m.tree.Node(nid).Name) + "/"
+		}
 	}
 	return name
 }
@@ -184,6 +202,20 @@ func (m *Model) blockSize(id int64) int64 {
 		return 0
 	}
 	return m.sizeOf(inventory.NodeID(id))
+}
+
+// parentSize is the size of the folder a block sits in.
+func (m *Model) parentSize(id int64) int64 {
+	if isGroup(id) {
+		if g, ok := m.groupInfo(id); ok {
+			return m.sizeOf(g.parent)
+		}
+		return 0
+	}
+	if p := m.tree.Node(inventory.NodeID(id)).Parent; p != inventory.NoNode {
+		return m.sizeOf(p)
+	}
+	return 0
 }
 
 func (m *Model) paintTop(cv *Canvas, b treemap.Block, sel, hov bool, total int64) {
@@ -276,7 +308,7 @@ func (m *Model) hasNested(id int64) bool { return m.tm != nil && m.tm.inner[id] 
 func (m *Model) paintNested(cv *Canvas, nb nested) {
 	t := m.theme
 	base := m.colorOf(nb.id)
-	f := 0.38 - 0.1*float64(nb.depth-2)
+	f := max(0.38-0.1*float64(nb.depth-2), 0.1)
 	if nb.alt {
 		f += 0.07
 	}
@@ -327,7 +359,12 @@ func (m *Model) paintNested(cv *Canvas, nb nested) {
 	}
 	cv.Text(lx, ly, textutil.Truncate(name, lw), lw, Style{FG: st.FG, BG: bg, Attr: Bold})
 	if !nb.inner && r.H >= 3 && lw >= 5 {
-		cv.Text(lx, ly+1, textutil.Truncate(textutil.SizeCompact(m.blockSize(nb.id)), lw), lw, Style{FG: bg.Mix(st.FG, 0.7), BG: bg})
+		size := m.blockSize(nb.id)
+		label := textutil.SizeCompact(size)
+		if pct := textutil.Percent(size, m.parentSize(nb.id)); textutil.Width(label)+textutil.Width(pct)+3 <= lw {
+			label += " · " + pct
+		}
+		cv.Text(lx, ly+1, textutil.Truncate(label, lw), lw, Style{FG: bg.Mix(st.FG, 0.7), BG: bg})
 	}
 }
 
