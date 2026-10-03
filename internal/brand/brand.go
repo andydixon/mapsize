@@ -8,4 +8,4 @@ const (
 )
 
 // Version is stamped at release time via -ldflags -X.
-var Version = "1.0.0"
+var Version = "1.1.0"

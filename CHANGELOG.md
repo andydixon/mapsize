@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 — 2026-10-03
+
+### Fixed
+- Map: folders that contain a single subfolder (`mnt/raid/media/`) now
+  collapse into one label instead of each taking a nesting level, so the
+  map at `/` reaches the shows, seasons and individual files. Nesting goes as
+  deep as the block sizes allow (previously a fixed 3 levels), and nested
+  blocks show their size and percentage of their parent folder.
+
 ## 1.0.0 — 2026-10-02
 
 First stable release. The snapshot format (version 1) is now stable: later
