@@ -123,3 +123,10 @@ func mountTop(path string, dev uint64) string {
 		cur = parent
 	}
 }
+
+// Headless reports whether there is no graphical session (no X or Wayland
+// display), so there is no file manager to open and no desktop trash anyone
+// will empty.
+func Headless() bool {
+	return os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == ""
+}

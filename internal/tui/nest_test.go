@@ -70,3 +70,20 @@ func TestNestingReachesDeepMedia(t *testing.T) {
 		t.Fatalf("only %d episode blocks drawn", files)
 	}
 }
+
+// Headless, o shows the selected folder in the map instead of launching a
+// file manager.
+func TestRevealHeadlessZoomsMap(t *testing.T) {
+	t.Setenv("DISPLAY", "")
+	t.Setenv("WAYLAND_DISPLAY", "")
+	tr := rootTree()
+	m := newModel(Options{Start: func(context.Context) (*scan.Scanner, *inventory.Tree, error) { return nil, tr, nil }}, nil, tr, func() {})
+	send(m, size(160, 45))
+	mnt := m.kidsOf(m.zoom).ids[0]
+	m.snapshot = false // reveal is refused for snapshots
+	m.sel, m.userSel = int64(mnt), true
+	send(m, key("o"))
+	if m.zoom != mnt {
+		t.Fatalf("zoom = %q, want mnt", tr.Path(m.zoom))
+	}
+}

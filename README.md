@@ -56,8 +56,8 @@ file-manager integration have not yet been tested there.
 | x, g, e | file types, top lists, scan info & errors |
 | D | find duplicates |
 | a | toggle allocated / logical size |
-| c, o | copy path, reveal in file manager |
-| d | move to trash (asks; disabled with `--read-only`) |
+| c, o | copy path, reveal in file manager (headless: show the folder in the map) |
+| d | move to trash, or delete permanently when headless (asks; disabled with `--read-only`) |
 | s, r | save snapshot, rescan |
 | T | cycle theme |
 | ? | help |
@@ -160,9 +160,16 @@ uses ordinary filesystem APIs, and duplicate detection reads file content
 
 `d` moves the selected item to the system trash (freedesktop.org trash on
 Linux, `~/.Trash` on macOS, the Recycle Bin on Windows) after confirmation,
-using native file operations — never a shell. Permanent deletion is not
-offered. Trash is unavailable while scanning, for snapshots, and in
-read-only mode.
+using native file operations — never a shell.
+
+On a headless Linux or BSD system (neither `DISPLAY` nor `WAYLAND_DISPLAY`
+set) nothing ever empties the trash, so trashing would not free any space.
+There `d` deletes permanently instead, after a confirmation that says it
+cannot be undone, and `o` shows the folder in the map rather than opening a
+file manager.
+
+Deletion is unavailable while scanning, for snapshots, and in read-only
+mode.
 
 ## Documentation
 

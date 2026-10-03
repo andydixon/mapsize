@@ -21,10 +21,13 @@ type trashDoneMsg struct {
 	tree *inventory.Tree // the tree id belongs to; results for a replaced tree are dropped
 	id   inventory.NodeID
 	err  error
+	done string // "Moved to trash" or "Deleted"
 }
 
 // requestTrash asks for confirmation before moving the selection to the
-// trash. Permanent deletion is deliberately not offered.
+// trash. On a headless system (no desktop, so nobody empties the trash and
+// the space is never freed) it deletes permanently instead, after a
+// confirmation that says so.
 func (m *Model) requestTrash() tea.Cmd {
 	switch {
 	case m.opts.ReadOnly:
@@ -32,7 +35,7 @@ func (m *Model) requestTrash() tea.Cmd {
 	case m.snapshot:
 		return m.warn("Snapshot view: nothing to delete on the live filesystem")
 	case m.scanning:
-		return m.warn("Wait for the scan to finish before trashing items")
+		return m.warn("Wait for the scan to finish before deleting items")
 	}
 	id := m.selectedNode()
 	if id == inventory.NoNode || id == m.tree.Root() {
@@ -45,15 +48,29 @@ func (m *Model) requestTrash() tea.Cmd {
 	if n.IsDir() {
 		what = fmt.Sprintf("directory with %s files", textutil.Count(int64(n.Files)))
 	}
+	body := []string{textutil.Sanitize(path), "", fmt.Sprintf("%s · %s", what, textutil.Size(n.Total(m.sizeMode))), ""}
+	if platform.Headless() {
+		m.openModal(&confirmModal{
+			ttl: "Delete permanently? Are you sure?",
+			body: append(body, "This is a headless system (no X or Wayland display), so there is no trash:",
+				"it will be permanently deleted and cannot be recovered."),
+			yes: "delete permanently",
+			onYes: func(m *Model) tea.Cmd {
+				t := m.tree
+				return func() tea.Msg { return trashDoneMsg{t, id, platform.Delete(path, want), "Deleted"} }
+			},
+		})
+		return nil
+	}
 	m.openModal(&confirmModal{
-		ttl: "Move to trash?",
-		body: []string{textutil.Sanitize(path), "",
-			fmt.Sprintf("%s · %s", what, textutil.Size(n.Total(m.sizeMode))),
-			"", "It will be moved to the " + platform.TrashName + ", not permanently deleted."},
-		yes: "move to " + platform.TrashName,
+		ttl:  "Move to trash?",
+		body: append(body, "It will be moved to the "+platform.TrashName+", not permanently deleted."),
+		yes:  "move to " + platform.TrashName,
 		onYes: func(m *Model) tea.Cmd {
 			t := m.tree
-			return func() tea.Msg { return trashDoneMsg{t, id, platform.Trash(path, want)} }
+			return func() tea.Msg {
+				return trashDoneMsg{t, id, platform.Trash(path, want), "Moved to " + platform.TrashName}
+			}
 		},
 	})
 	return nil
@@ -61,11 +78,11 @@ func (m *Model) requestTrash() tea.Cmd {
 
 func (m *Model) trashDone(msg trashDoneMsg) tea.Cmd {
 	if msg.err != nil {
-		return m.warn("Trash failed: " + textutil.Sanitize(msg.err.Error()))
+		return m.warn("Delete failed: " + textutil.Sanitize(msg.err.Error()))
 	}
 	if msg.tree != m.tree || m.scanning {
 		// A rescan replaced the inventory; the new scan reflects the change.
-		return m.info("Moved to " + platform.TrashName)
+		return m.info(msg.done)
 	}
 	// The scan has finished, so the UI goroutine is the tree's only writer.
 	t := m.tree
@@ -87,7 +104,7 @@ func (m *Model) trashDone(msg trashDoneMsg) tea.Cmd {
 	name := n.Name
 	t.Unlock()
 	m.invalidate()
-	return m.info("Moved to " + platform.TrashName + ": " + textutil.Sanitize(name))
+	return m.info(msg.done + ": " + textutil.Sanitize(name))
 }
 
 // ---- Duplicates ----------------------------------------------------------
