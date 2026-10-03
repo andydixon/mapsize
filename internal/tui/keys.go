@@ -226,6 +226,17 @@ func (m *Model) reveal() tea.Cmd {
 	if !ok {
 		return nil
 	}
+	if platform.Headless() {
+		// No file manager: show the folder in the map instead.
+		id := m.selectedNode()
+		if m.tree.Node(id).IsDir() && len(m.kidsOf(id).ids) > 0 {
+			m.zoomTo(id)
+			m.setViewByName("Map")
+		} else {
+			m.jumpTo(id)
+		}
+		return m.info("Showing " + textutil.Sanitize(m.tree.Path(m.zoom)))
+	}
 	if err := platform.Reveal(p); err != nil {
 		return m.warn("Open failed: " + textutil.Sanitize(err.Error()))
 	}

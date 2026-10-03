@@ -75,3 +75,7 @@ func volumeOf(path string) string {
 	}
 	return ""
 }
+
+// Headless is always false: macOS has Finder and the Trash even without
+// $DISPLAY (which it does not use).
+func Headless() bool { return false }

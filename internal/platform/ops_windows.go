@@ -70,3 +70,9 @@ func Trash(path string, _ Expect) error {
 	}
 	return nil
 }
+
+// Headless is always false: Windows always has Explorer and the Recycle Bin.
+func Headless() bool { return false }
+
+// Delete is not offered on Windows; items go to the Recycle Bin.
+func Delete(string, Expect) error { return errors.New("permanent delete not supported on Windows") }

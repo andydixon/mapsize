@@ -301,4 +301,7 @@ Filenames and snapshot contents are untrusted.
   Aggregates are recomputed with saturating arithmetic rather than trusted.
 * No shell is ever invoked. "Open/reveal" and trash use direct `exec` with
   argument vectors or native APIs; paths are passed as single arguments.
+* Permanent delete (headless only) checks the item's owner and type against
+  the scan and removes it through an `os.Root` on the parent directory, so
+  a symlink swapped in since the scan cannot redirect it.
 * `--read-only` disables every mutating action in the UI.

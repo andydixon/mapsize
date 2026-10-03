@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0 — 2026-10-03
+
+### Changed
+- On a headless Linux or BSD system (no `DISPLAY` or `WAYLAND_DISPLAY`), `d`
+  deletes permanently after an "are you sure" confirmation instead of moving
+  to a trash nobody empties, and `o` shows the folder in the map instead of
+  trying to open a file manager. Desktop sessions, macOS and Windows still
+  use the trash and the file manager.
+
 ## 1.1.0 — 2026-10-03
 
 ### Fixed

@@ -113,3 +113,43 @@ func TestTrashRefusesSwappedItem(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDeletePermanently(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "S01")
+	os.MkdirAll(filepath.Join(dir, "extras"), 0o755)
+	os.WriteFile(filepath.Join(dir, "extras", "E01.mkv"), []byte("x"), 0o644)
+	// A symlink inside must be removed, not followed.
+	keep := filepath.Join(base, "keep")
+	os.WriteFile(keep, []byte("k"), 0o644)
+	os.Symlink(keep, filepath.Join(dir, "link"))
+
+	w := want(t, dir)
+	if err := Delete(dir, Expect{UID: w.UID, Mode: 0}); err == nil {
+		t.Fatal("type mismatch accepted")
+	}
+	if err := Delete(dir, w); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(dir); !os.IsNotExist(err) {
+		t.Fatal("directory still present")
+	}
+	if _, err := os.Lstat(keep); err != nil {
+		t.Fatal("symlink target was deleted")
+	}
+	if err := Delete("relative/path", Expect{}); err == nil {
+		t.Fatal("relative paths must be refused")
+	}
+}
+
+func TestHeadless(t *testing.T) {
+	t.Setenv("DISPLAY", "")
+	t.Setenv("WAYLAND_DISPLAY", "")
+	if !Headless() {
+		t.Fatal("no display should be headless")
+	}
+	t.Setenv("WAYLAND_DISPLAY", "wayland-0")
+	if Headless() {
+		t.Fatal("wayland session reported headless")
+	}
+}

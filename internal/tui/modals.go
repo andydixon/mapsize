@@ -39,9 +39,9 @@ func (*infoModal) width() int { return 72 }
 func (md *infoModal) title() string { return "Item information" }
 
 func (md *infoModal) footer(m *Model) string {
-	s := "Esc close  ·  c copy path  ·  o reveal  ·  Space go to"
+	s := "Esc close  ·  c copy path  ·  o " + revealVerb() + "  ·  Space go to"
 	if !m.opts.ReadOnly && !m.snapshot {
-		s += "  ·  d trash"
+		s += "  ·  d " + deleteVerb()
 	}
 	return s
 }
@@ -168,7 +168,8 @@ func (md *infoModal) key(m *Model, k string) (bool, tea.Cmd) {
 		return false, m.copyPath(m.tree.Path(md.id))
 	case "o":
 		m.sel = int64(md.id)
-		return false, m.reveal()
+		// Headless, o navigates the map, which the modal would cover.
+		return platform.Headless(), m.reveal()
 	case "enter":
 		return true, nil
 	case "g", "right":
@@ -273,9 +274,9 @@ func (helpModal) content(m *Model, _ int) []line {
 	sec("APPLICATION")
 	row("a", "toggle allocated / logical (apparent) size")
 	row("c", "copy path to clipboard")
-	row("o", "reveal in file manager")
+	row("o", revealVerb())
 	if !m.opts.ReadOnly {
-		row("d", "move to trash (asks first)")
+		row("d", deleteVerb()+" (asks first)")
 	}
 	row("s", "save snapshot")
 	row("r", "rescan")
@@ -371,4 +372,20 @@ func (md *saveModal) key(m *Model, k string) (bool, tea.Cmd) {
 		return true, tea.Batch(m.saveSnapshot(p), m.info("Saving snapshot…"))
 	}
 	return false, nil
+}
+
+// revealVerb and deleteVerb describe o and d, which change meaning on a
+// headless system.
+func revealVerb() string {
+	if platform.Headless() {
+		return "show folder in map"
+	}
+	return "reveal in file manager"
+}
+
+func deleteVerb() string {
+	if platform.Headless() {
+		return "delete permanently"
+	}
+	return "move to " + platform.TrashName
 }
