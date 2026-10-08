@@ -17,7 +17,7 @@ is the median (and best) of 7 runs.
 
 ## Scanner
 
-Dataset: `~/go/pkg/mod`, a large module cache: 388,307 files + 65,518
+Dataset: a source-package cache directory: 388,307 files + 65,518
 directories (458,510 inventory nodes), 10.5 GiB allocated. **Warm cache
 only**: dropping the page cache needs root, so these measure CPU and syscall
 cost, not disk seeks. Cold-cache behaviour on HDDs will be dominated by seek

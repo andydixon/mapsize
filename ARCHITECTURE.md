@@ -285,17 +285,27 @@ it receives all keys; `Esc` always closes it.
 
 ## OS abstraction
 
-`internal/platform` exposes `ReadDir(path, func(chunk []Entry) error)` and
-`Meta` structs. Implementations:
+`platform` exposes `read_dir(path, chunk, |entries| …)`, `stat`/`lstat`,
+`Meta`, trash, delete, reveal and name lookups. `platform/unix.rs` and
+`platform/windows.rs` hold the implementations:
 
-* `readdir_linux.go`   — `getdents` via `os.File.ReadDir` + `statx` relative to
-  the directory fd (one syscall per entry, gives birth time).
-* `readdir_unix.go`    — darwin/BSD: `fstatat` relative to the directory fd.
-* `readdir_windows.go` — `os.File.ReadDir` + `Lstat`; reparse points
-  (junctions, symlinks) are never descended by default.
-* `fs_*.go`            — virtual-filesystem detection, owner name lookup.
+* Linux — `readdir` on an `O_DIRECTORY` descriptor + `statx` (via the raw
+  system call, so static musl builds work) relative to that descriptor: one
+  system call per entry, birth time included; `fstatat` if the kernel lacks
+  `statx`. Virtual filesystems are detected with `statfs`. freedesktop.org
+  trash; `xdg-open` reveals.
+* macOS, FreeBSD, NetBSD — the same descriptor-relative walk with
+  `fstatat`. macOS moves items to `~/.Trash` (or the volume's `.Trashes`)
+  and reveals with `open -R`; the BSDs have no trash or reveal, so `d` is
+  only offered as a permanent delete when headless.
+* Windows — `std::fs::read_dir` and metadata. Allocated size is reported as
+  unknown and there is no inode identity, so hard links are not
+  deduplicated and symlinks and junctions are never followed. The Recycle
+  Bin (`SHFileOperationW`) and `explorer /select,` reveal; permanent delete
+  is not offered.
 
-No other package switches on `runtime.GOOS`.
+The terminal code has the only other `cfg` blocks (signals and writing the
+restore sequence).
 
 ## Security handling for hostile filenames
 
