@@ -375,8 +375,7 @@ fn split_num(s: &str) -> (&str, &str) {
 pub fn parse_size(s: &str) -> Result<i64, String> {
     let (num, unit_raw) = split_num(s);
     let Ok(v) = num.parse::<f64>() else { return Err(format!("bad size {s:?}")) };
-    // ponytail: textutil exposes no SI getter; its formatting reveals the setting.
-    let bare: f64 = if crate::textutil::size(1000).ends_with("kB") { 1000.0 } else { 1024.0 };
+    let bare: f64 = if crate::textutil::si() { 1000.0 } else { 1024.0 };
     let m = match unit_raw.trim().to_lowercase().as_str() {
         "" | "b" => 1.0,
         "k" => bare,

@@ -162,11 +162,16 @@ pub fn set_si(v: bool) {
     SI.store(v, Ordering::Relaxed);
 }
 
+/// Whether decimal units are selected.
+pub fn si() -> bool {
+    SI.load(Ordering::Relaxed)
+}
+
 const IEC_UNITS: [&str; 7] = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"];
 const SI_UNITS: [&str; 7] = ["B", "kB", "MB", "GB", "TB", "PB", "EB"];
 
 fn scaled(n: i64) -> (f64, &'static str) {
-    let (base, units) = if SI.load(Ordering::Relaxed) { (1000.0, &SI_UNITS) } else { (1024.0, &IEC_UNITS) };
+    let (base, units) = if si() { (1000.0, &SI_UNITS) } else { (1024.0, &IEC_UNITS) };
     let neg = n < 0;
     let mut v = (n as f64).abs();
     let mut i = 0;
