@@ -12,6 +12,7 @@ pub mod scan;
 pub mod snapshot;
 pub mod textutil;
 pub mod treemap;
+pub mod tui;
 
 /// Boxed error used across mode boundaries.
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
