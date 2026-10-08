@@ -14,7 +14,6 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Read};
-use std::os::unix::fs::FileExt;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
@@ -229,7 +228,7 @@ fn sample_hash(_: &Finder, c: &Cand) -> Option<[u8; 32]> {
     let mut h = Sha256::new();
     let mut buf = vec![0u8; SAMPLE_SIZE as usize];
     for off in [0, c.size / 2 - SAMPLE_SIZE / 2, c.size - SAMPLE_SIZE] {
-        match fh.read_exact_at(&mut buf, off as u64) {
+        match platform::read_exact_at(&fh, &mut buf, off as u64) {
             Ok(()) => {}
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {} // shrank; stage 3 rejects it
             Err(_) => return None,
@@ -263,14 +262,12 @@ fn full_hash(f: &Finder, c: &Cand) -> Option<[u8; 32]> {
 mod tests {
     use super::*;
     use crate::scan::{self, tests::TempDir};
-    use std::os::unix::ffi::OsStrExt;
     use std::path::Path;
     use std::sync::Arc;
-    use std::time::Duration;
 
     fn scan(root: &Path, workers: usize) -> Arc<RwLock<Tree>> {
         let s = scan::start(
-            root.as_os_str().as_bytes(),
+            root.as_os_str().as_encoded_bytes(),
             scan::Options {
                 workers,
                 ..Default::default()
@@ -323,8 +320,11 @@ mod tests {
 
     /// A candidate replaced by a FIFO (or a symlink to one) after the scan
     /// must be skipped, not block the search forever in open(2).
+    #[cfg(unix)]
     #[test]
     fn find_skips_swapped_fifo() {
+        use std::os::unix::ffi::OsStrExt;
+        use std::time::Duration;
         let root = TempDir::new("dupfifo");
         let other = TempDir::new("dupfifo2");
         for n in ["a", "b", "c"] {

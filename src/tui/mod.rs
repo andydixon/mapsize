@@ -55,22 +55,14 @@ pub(crate) fn san(b: &[u8]) -> String {
     textutil::sanitize_bytes(b)
 }
 
-fn local_tm(unix_nanos: i64) -> libc::tm {
-    let secs = unix_nanos.div_euclid(1_000_000_000) as libc::time_t;
-    let mut tm: libc::tm = unsafe { std::mem::zeroed() };
-    unsafe { libc::localtime_r(&secs, &mut tm) };
-    tm
+fn local_tm(unix_nanos: i64) -> crate::platform::LocalTime {
+    crate::platform::local_time(unix_nanos.div_euclid(1_000_000_000))
 }
 
 /// Formats a timestamp as a local date ("2006-01-02").
 pub(crate) fn fmt_date(unix_nanos: i64) -> String {
     let t = local_tm(unix_nanos);
-    format!(
-        "{:04}-{:02}-{:02}",
-        t.tm_year + 1900,
-        t.tm_mon + 1,
-        t.tm_mday
-    )
+    format!("{:04}-{:02}-{:02}", t.year, t.month, t.day)
 }
 
 /// Formats a timestamp as local date and time ("2006-01-02 15:04:05").
@@ -78,12 +70,7 @@ pub(crate) fn fmt_time(unix_nanos: i64) -> String {
     let t = local_tm(unix_nanos);
     format!(
         "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
-        t.tm_year + 1900,
-        t.tm_mon + 1,
-        t.tm_mday,
-        t.tm_hour,
-        t.tm_min,
-        t.tm_sec
+        t.year, t.month, t.day, t.hour, t.min, t.sec
     )
 }
 
@@ -95,10 +82,6 @@ pub(crate) fn fmt_stamp_now() -> String {
     let t = local_tm(now.as_nanos() as i64);
     format!(
         "{:04}{:02}{:02}-{:02}{:02}",
-        t.tm_year + 1900,
-        t.tm_mon + 1,
-        t.tm_mday,
-        t.tm_hour,
-        t.tm_min
+        t.year, t.month, t.day, t.hour, t.min
     )
 }

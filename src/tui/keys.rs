@@ -10,8 +10,6 @@ use crate::inventory::{NodeId, SizeMode, Tree, NO_NODE};
 use crate::platform;
 use crate::snapshot;
 use crate::textutil;
-use std::ffi::OsStr;
-use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::rc::Rc;
 
@@ -232,9 +230,9 @@ impl Model {
 }
 
 pub(crate) fn default_snapshot_name(root: &[u8]) -> String {
-    let p = Path::new(OsStr::from_bytes(root));
+    let p = crate::platform::path_from_bytes(root);
     let base = match p.file_name() {
-        Some(b) => String::from_utf8_lossy(b.as_bytes()).into_owned(),
+        Some(b) => b.to_string_lossy().into_owned(),
         None => "root".into(),
     };
     let wd = std::env::current_dir().unwrap_or_default();

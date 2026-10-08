@@ -11,7 +11,6 @@ use crate::inventory::{category_for, ext, Kind, NodeId, Tree, FLAG_SCANNED};
 use crate::scan;
 use crate::textutil;
 use crate::treemap::Block;
-use std::os::unix::ffi::OsStrExt;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
@@ -630,7 +629,7 @@ fn live_scan_rendering() {
             .unwrap();
         }
     }
-    let path = root.0.as_os_str().as_bytes().to_vec();
+    let path = root.0.as_os_str().as_encoded_bytes().to_vec();
     let start: StartFn = Arc::new(move |c: Cancel| {
         let s = scan::start(
             &path,

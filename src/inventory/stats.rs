@@ -42,16 +42,18 @@ impl ErrKind {
 
 /// Maps an OS error to an ErrKind.
 pub fn classify(err: &io::Error) -> ErrKind {
+    #[cfg(unix)]
     match err.raw_os_error() {
-        Some(libc::EACCES) | Some(libc::EPERM) => ErrKind::Permission,
-        Some(libc::ENOENT) => ErrKind::Vanished,
-        Some(libc::ELOOP) => ErrKind::Loop,
-        Some(libc::EIO) => ErrKind::Io,
-        _ => match err.kind() {
-            io::ErrorKind::PermissionDenied => ErrKind::Permission,
-            io::ErrorKind::NotFound => ErrKind::Vanished,
-            _ => ErrKind::Other,
-        },
+        Some(libc::EACCES | libc::EPERM) => return ErrKind::Permission,
+        Some(libc::ENOENT) => return ErrKind::Vanished,
+        Some(libc::ELOOP) => return ErrKind::Loop,
+        Some(libc::EIO) => return ErrKind::Io,
+        _ => {}
+    }
+    match err.kind() {
+        io::ErrorKind::PermissionDenied => ErrKind::Permission,
+        io::ErrorKind::NotFound => ErrKind::Vanished,
+        _ => ErrKind::Other,
     }
 }
 

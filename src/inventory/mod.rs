@@ -13,9 +13,8 @@ pub use category::*;
 pub use query::*;
 pub use stats::*;
 
+use crate::platform;
 use std::collections::HashMap;
-use std::ffi::OsStr;
-use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 
 /// Addresses a node within one Tree. The root is always 0.
@@ -310,8 +309,8 @@ impl Tree {
         }
         let mut out = Vec::with_capacity(parts.iter().map(|p| p.len() + 1).sum());
         for p in parts.iter().rev() {
-            if !out.is_empty() && out.last() != Some(&b'/') {
-                out.push(b'/');
+            if !out.is_empty() && !out.last().is_some_and(|&b| platform::is_sep(b)) {
+                out.push(platform::SEP);
             }
             out.extend_from_slice(p);
         }
@@ -320,7 +319,7 @@ impl Tree {
 
     /// Reconstructs the full path of id.
     pub fn path(&self, id: NodeId) -> PathBuf {
-        PathBuf::from(OsStr::from_bytes(&self.path_bytes(id)))
+        platform::path_from_bytes(&self.path_bytes(id))
     }
 
     /// The full path as (lossy) UTF-8, unsanitised.
