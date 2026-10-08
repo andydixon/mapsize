@@ -644,11 +644,179 @@ mod tests {
     }
 }
 
-/// Shell-style glob match with Go filepath.Match semantics: `*` and `?` do
-/// not match '/'. Unlike Go, glibc treats a malformed bracket literally.
+/// Shell-style glob match, a port of Go's filepath.Match: `*` and `?` do not
+/// match '/', `[^...]` negates, `\\` escapes. A malformed pattern matches
+/// nothing.
 pub fn glob_match(pattern: &[u8], name: &[u8]) -> bool {
-    let (Ok(p), Ok(n)) = (CString::new(pattern), CString::new(name)) else { return false };
-    unsafe { libc::fnmatch(p.as_ptr(), n.as_ptr(), libc::FNM_PATHNAME) == 0 }
+    // Fast path for the common "*.ext" shape: * cannot cross '/'.
+    if let Some(suffix) = pattern.strip_prefix(b"*") {
+        if !suffix.iter().any(|b| b"*?[\\".contains(b)) {
+            return name.ends_with(suffix) && !name[..name.len() - suffix.len()].contains(&b'/');
+        }
+    }
+    glob(pattern, name).unwrap_or(false)
+}
+
+struct BadPattern;
+
+fn decode_rune(s: &[u8]) -> (u32, usize) {
+    match s.utf8_chunks().next() {
+        Some(c) if !c.valid().is_empty() => {
+            let ch = c.valid().chars().next().unwrap();
+            (ch as u32, ch.len_utf8())
+        }
+        _ => (0xFFFD, 1),
+    }
+}
+
+fn glob(mut pattern: &[u8], mut name: &[u8]) -> Result<bool, BadPattern> {
+    'pattern: while !pattern.is_empty() {
+        let (star, chunk, rest) = scan_chunk(pattern);
+        pattern = rest;
+        if star && chunk.is_empty() {
+            // Trailing * matches the rest of the string unless it has a /.
+            return Ok(!name.contains(&b'/'));
+        }
+        let r = match_chunk(chunk, name);
+        if let Ok(Some(t)) = r {
+            // The last chunk must exhaust the name.
+            if t.is_empty() || !pattern.is_empty() {
+                name = t;
+                continue;
+            }
+        }
+        r?;
+        if star {
+            // Look for a match skipping i+1 bytes; cannot skip /.
+            let mut i = 0;
+            while i < name.len() && name[i] != b'/' {
+                if let Some(t) = match_chunk(chunk, &name[i + 1..])? {
+                    if !(pattern.is_empty() && !t.is_empty()) {
+                        name = t;
+                        continue 'pattern;
+                    }
+                }
+                i += 1;
+            }
+        }
+        // Before failing, check the rest of the pattern is well-formed.
+        while !pattern.is_empty() {
+            let (_, chunk, rest) = scan_chunk(pattern);
+            pattern = rest;
+            match_chunk(chunk, b"")?;
+        }
+        return Ok(false);
+    }
+    Ok(name.is_empty())
+}
+
+fn scan_chunk(mut pattern: &[u8]) -> (bool, &[u8], &[u8]) {
+    let mut star = false;
+    while pattern.first() == Some(&b'*') {
+        pattern = &pattern[1..];
+        star = true;
+    }
+    let mut in_range = false;
+    let mut i = 0;
+    while i < pattern.len() {
+        match pattern[i] {
+            b'\\' if i + 1 < pattern.len() => i += 1,
+            b'[' => in_range = true,
+            b']' => in_range = false,
+            b'*' if !in_range => break,
+            _ => {}
+        }
+        i += 1;
+    }
+    (star, &pattern[..i], &pattern[i..])
+}
+
+/// Matches one chunk against the start of s, returning the rest of s.
+fn match_chunk<'a>(mut chunk: &[u8], mut s: &'a [u8]) -> Result<Option<&'a [u8]>, BadPattern> {
+    // After a failure, keep parsing chunk to validate it, but stop reading s.
+    let mut failed = false;
+    while !chunk.is_empty() {
+        if !failed && s.is_empty() {
+            failed = true;
+        }
+        match chunk[0] {
+            b'[' => {
+                let mut r = 0;
+                if !failed {
+                    let (c, n) = decode_rune(s);
+                    r = c;
+                    s = &s[n..];
+                }
+                chunk = &chunk[1..];
+                let negated = chunk.first() == Some(&b'^');
+                if negated {
+                    chunk = &chunk[1..];
+                }
+                let (mut matched, mut nrange) = (false, 0);
+                loop {
+                    if chunk.first() == Some(&b']') && nrange > 0 {
+                        chunk = &chunk[1..];
+                        break;
+                    }
+                    let (lo, rest) = get_esc(chunk)?;
+                    chunk = rest;
+                    let mut hi = lo;
+                    if chunk[0] == b'-' {
+                        (hi, chunk) = get_esc(&chunk[1..])?;
+                    }
+                    if lo <= r && r <= hi {
+                        matched = true;
+                    }
+                    nrange += 1;
+                }
+                if matched == negated {
+                    failed = true;
+                }
+            }
+            b'?' => {
+                if !failed {
+                    if s[0] == b'/' {
+                        failed = true;
+                    }
+                    s = &s[decode_rune(s).1..];
+                }
+                chunk = &chunk[1..];
+            }
+            c => {
+                let c = if c == b'\\' {
+                    chunk = &chunk[1..];
+                    *chunk.first().ok_or(BadPattern)?
+                } else {
+                    c
+                };
+                if !failed {
+                    if c != s[0] {
+                        failed = true;
+                    }
+                    s = &s[1..];
+                }
+                chunk = &chunk[1..];
+            }
+        }
+    }
+    Ok((!failed).then_some(s))
+}
+
+fn get_esc(mut chunk: &[u8]) -> Result<(u32, &[u8]), BadPattern> {
+    if chunk.is_empty() || chunk[0] == b'-' || chunk[0] == b']' {
+        return Err(BadPattern);
+    }
+    if chunk[0] == b'\\' {
+        chunk = &chunk[1..];
+        if chunk.is_empty() {
+            return Err(BadPattern);
+        }
+    }
+    let (r, n) = decode_rune(chunk);
+    if (r == 0xFFFD && n == 1) || chunk.len() == n {
+        return Err(BadPattern);
+    }
+    Ok((r, &chunk[n..]))
 }
 
 /// Lexically cleans a path like Go's filepath.Clean.
@@ -703,5 +871,15 @@ mod path_tests {
         assert!(glob_match(b"*.log", b"x.log"));
         assert!(!glob_match(b"*.log", b"d/x.log"));
         assert!(glob_match(b"/tmp/*/x", b"/tmp/a/x"));
+        assert!(!glob_match(b"[", b"["));
+        assert!(glob_match(b"a[^b-d]?", "ax\u{e9}".as_bytes()));
+        assert!(!glob_match(b"a[^b-d]c", b"abc"));
+        assert!(glob_match(b"\\*x", b"*x"));
+        assert!(glob_match(b"*.dat", b"f1.dat"));
+        assert!(!glob_match(b"*.dat", b"f1.dax"));
+        assert!(glob_match(b"a*b*c", b"axxbyyc"));
+        assert!(glob_match(b"*/x", b"a/x") && !glob_match(b"*/x", b"a/b/x"));
+        assert!(glob_match(b"*", b"abc") && !glob_match(b"*", b"a/c"));
+        assert!(!glob_match(b"*.dat", b"x.dat/y.da") && !glob_match(b"*.dat", b"d/x.dat"));
     }
 }
