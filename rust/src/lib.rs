@@ -7,6 +7,7 @@ pub mod export;
 pub mod inventory;
 pub mod platform;
 pub mod scan;
+pub mod snapshot;
 pub mod textutil;
 
 /// Boxed error used across mode boundaries.
