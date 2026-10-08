@@ -9,6 +9,7 @@ pub mod filter;
 pub mod inventory;
 pub mod platform;
 pub mod scan;
+pub mod snapshot;
 pub mod textutil;
 pub mod treemap;
 
