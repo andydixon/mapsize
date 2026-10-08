@@ -3,7 +3,7 @@
 use super::canvas::{Canvas, Style, BOLD};
 use super::model::{Cmd, Model};
 use super::table::{col, Table, TableRow};
-use super::{san, si_units};
+use super::san;
 use crate::inventory::{ErrKind, Tree, FLAG_ALLOC_UNKNOWN};
 use crate::textutil;
 use crate::treemap::Rect;
@@ -107,7 +107,7 @@ impl InfoView {
         line(cv, &mut y, "One filesystem", &st.one_file_system.to_string(), value);
         line(cv, &mut y, "Follow symlinks", &textutil::sanitize(&st.follow), value);
         line(cv, &mut y, "Size mode", m.size_mode.name(), value);
-        line(cv, &mut y, "Units", if si_units() { "SI (1000)" } else { "IEC (1024)" }, value);
+        line(cv, &mut y, "Units", if crate::textutil::si() { "SI (1000)" } else { "IEC (1024)" }, value);
         if root.has(FLAG_ALLOC_UNKNOWN) {
             line(cv, &mut y, "Note", "allocated size unavailable on this platform", Style::new(t.warn, t.bg));
         }
