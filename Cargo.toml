@@ -3,7 +3,7 @@ name = "mapsize"
 version = "1.2.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
-description = "Interactive terminal disk usage analyser (Rust port)"
+description = "Interactive terminal disk usage analyser with a live, navigable treemap"
 
 [dependencies]
 libc = "0.2"
