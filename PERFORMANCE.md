@@ -3,107 +3,115 @@
 All numbers below were measured, not estimated. Re-run them on your own
 hardware before relying on them; filesystem caches dominate scan timings.
 
-## Test machine (2026-10-02)
+## Test machine (2026-10-08)
 
 | | |
 |---|---|
 | CPU | Intel Core i7-7700 @ 3.60 GHz, 4 cores / 8 threads |
 | RAM | 32 GiB |
-| OS | Linux 7.0, Go 1.27.1 |
+| OS | Linux 7.0, Rust 1.91.1 (release profile: LTO, one codegen unit) |
 | Filesystem | ext4 on Linux software RAID (`/dev/md2`) over two 7200 rpm SATA HDDs |
+
+The host is shared; its load average was 5–9 during these runs. Each figure
+is the median (and best) of 7 runs.
 
 ## Scanner
 
-Dataset: `~/go/pkg/mod` — 388,307 files + 65,518 directories (458,510
-inventory nodes), 10.5 GiB allocated. **Warm cache only**: dropping the page
-cache needs root, which was not available, so these measure CPU and syscall
+Dataset: `~/go/pkg/mod`, a large module cache: 388,307 files + 65,518
+directories (458,510 inventory nodes), 10.5 GiB allocated. **Warm cache
+only**: dropping the page cache needs root, so these measure CPU and syscall
 cost, not disk seeks. Cold-cache behaviour on HDDs will be dominated by seek
 time; expect fewer workers to be optimal there.
 
-`mapsize --no-ui --workers N ~/go/pkg/mod`, wall time, 3 runs each
-(`/usr/bin/time`):
+`mapsize --no-ui --workers N PATH`:
 
-| workers | run 1 | run 2 | run 3 | entries/s (best) | peak RSS |
-|---:|---:|---:|---:|---:|---:|
-| 1  | 1.77 s | 1.67 s | 1.65 s | ~278,000 | 117 MB |
-| 2  | 1.06 s | 0.99 s | 1.00 s | ~463,000 | 120 MB |
-| 4  | 0.59 s | 0.59 s | 0.62 s | ~777,000 | 117 MB |
-| 8 (balanced default) | 0.48 s | 0.50 s | 0.51 s | ~955,000 | 121 MB |
-| 16 | 0.45 s | 0.44 s | 0.43 s | ~1,066,000 | 121 MB |
-| 32 | 0.43 s | 0.44 s | 0.42 s | ~1,092,000 | 122 MB |
+| workers | median | best | peak RSS |
+|---:|---:|---:|---:|
+| 1  | 1.52 s | 1.44 s | 75 MB |
+| 8 (balanced default) | 0.47 s | 0.43 s | 76 MB |
+| 32 | 0.46 s | 0.43 s | 80 MB |
 
-For comparison, `du -s` on the same tree (warm): 1.59 s, 34 MB RSS.
+At 8 workers that is about 1,000,000 entries a second, in under 80 MB for
+458k nodes. Most of the time is spent in the `statx` and `getdents` system
+calls.
 
-CPU profile at 8 workers: ~60 % of samples in `statx`/`getdents` syscalls;
-path reconstruction for job dispatch ~7 %; aggregation is negligible.
-
-### Memory
-
-`go test ./internal/scan -run TestMemoryPerNode` with
-`MAPSIZE_MEM_ROOT=~/go/pkg/mod`: 458,510 nodes, 69.1 MiB live heap,
-**~158 bytes per node** (node record ~112 bytes plus name storage and
-directory side tables). Extrapolated, 10 M entries need ~1.6 GiB.
+| other runs over the same tree | median | peak RSS |
+|---|---:|---:|
+| scan + `--largest-files 50` | 0.60 s | 76 MB |
+| scan + `--json` (streamed to /dev/null) | 0.86 s | 76 MB |
 
 ## Snapshots
 
-Same 458,510-node tree:
+| operation | median | peak RSS |
+|---|---:|---:|
+| scan + save | 0.75 s | 77 MB |
+| load (`mapsize --no-ui file.msz`) | 0.23 s | 78 MB |
+| load a snapshot written by mapsize 1.2.0 | 0.26 s | 78 MB |
 
-| operation | result |
-|---|---:|
-| snapshot file size (gzip level 1) | 6.7 MB (~15 bytes/node) |
-| scan + save | 1.03 s |
-| load (`mapsize --no-ui file.msz`), 3 runs | 0.28 / 0.29 / 0.32 s, 81 MB RSS |
-| warm-cache rescan for comparison | 0.55 s |
-
-Loading decompresses and verifies SHA-256 on a separate goroutine, overlapping
-with parsing. Against a warm cache the win is ~1.9×; against a cold cache or
-a network filesystem, where scans are dominated by I/O latency, it is far
-larger (not yet measured here).
+Loading decompresses and verifies SHA-256 on one thread while another parses.
+Against a warm cache that is about twice as fast as rescanning; against a
+cold cache or a network filesystem, where scans are dominated by I/O
+latency, the gain is far larger (not yet measured here).
 
 ## UI
 
-`go test ./internal/tui -bench Big` on a synthetic in-memory tree of
-1,008,201 nodes (200 directories × 40 subdirectories × 100 files, plus one
-flat directory with 200,000 files), 200×60 terminal:
+`make benchmark` (`examples/bench.rs`), best of 5 runs, on a synthetic
+in-memory tree of 1,008,201 nodes (200 directories × 40 subdirectories × 100
+files, plus one flat directory with 200,000 files), 200×60 terminal:
 
 | operation | time per op |
 |---|---:|
-| cold frame at root (sort children, LOD, layout incl. nested previews, paint) | 33.8 ms |
-| resize to a new size (layout + paint, child lists cached) | 2.0 ms |
-| arrow-key move + re-render | 1.5 ms |
-| zoomed into the 200,000-entry directory, cold | 29.5 ms |
-| render of a small tree (2.4 K nodes) at 200×60 | 0.66 ms |
-| resize relayout of the small tree | 0.45 ms |
+| cold frame at root (sort children, LOD, layout incl. nested previews, paint) | 11.34 ms |
+| resize to a new size (layout + paint, child lists cached) | 1.50 ms |
+| arrow-key move + re-render | 1.31 ms |
+| zoomed into the 200,000-entry directory, cold | 9.37 ms |
 
-During a scan the size caches are invalidated at most every 400 ms, so a
-cold frame (worst case above ~34 ms) costs under 10 % of one core; other
-frames reuse caches. Resize events only record the new size; layout happens
-once per rendered frame, so a resize storm cannot queue up work.
+During a scan the size caches are invalidated at most every 400 ms, so even
+a cold frame costs a few percent of one core. Resize events only record the
+new size; layout happens once per rendered frame, so a resize storm cannot
+queue up work.
 
 ### Geometry
 
-`go test ./internal/treemap -bench .`:
-
 | operation | time |
 |---|---:|
-| squarified layout, 300 items | 89 µs |
-| spatial neighbour lookup among 300 blocks | 2.1 µs |
+| squarified layout, 300 items | 8.4 µs |
+| spatial neighbour lookup among 300 blocks | 1.1 µs |
 
 ### Filtering (1,008,201 nodes)
 
 | query | time |
 |---|---:|
-| `size > 1MB` | 31 ms |
-| `*.dat AND size > 500k` | 119 ms |
-| `path contains sub3` | 112 ms |
+| `size > 1MB` | 26.75 ms |
+| `*.dat AND size > 500k` | 67.84 ms |
+| `path contains sub3` | 63.80 ms |
 
-Filters run on a background goroutine with cancellation and a 120 ms
-keystroke debounce; the UI never waits for them.
+Filters run on a background thread with cancellation and a 120 ms keystroke
+debounce; the UI never waits for them. Path predicates build each path from
+the cached parent directory path into a reused buffer, and `*.ext` globs are
+a suffix test.
+
+## Compared with mapsize 1.2.0
+
+mapsize 1.2.0 was the last release of the previous implementation, written
+in Go. Both were run alternately on the same machine, over the same tree, in
+the same session:
+
+| | 1.2.0 | current | |
+|---|---:|---:|---|
+| scan, 8 workers (median) | 0.63 s | 0.47 s | 1.34× faster |
+| scan, 1 worker (median) | 1.89 s | 1.52 s | 1.24× faster |
+| peak RSS while scanning | 117 MB | 76 MB | |
+| scan + save snapshot | 1.22 s | 0.75 s | 1.63× faster |
+| load snapshot | 0.34 s | 0.23 s | 1.48× faster |
+| scan + JSON export | 1.27 s, 153 MB | 0.86 s, 76 MB | 1.48× faster |
+| cold frame, 1M nodes | 36.01 ms | 11.34 ms | 3.18× faster |
+| squarified layout, 300 items | 84.3 µs | 8.4 µs | 10.07× faster |
+| arrow key + re-render | 1.50 ms | 1.31 ms | 1.14× faster |
+| filter `*.dat AND size > 500k` | 121.40 ms | 67.84 ms | 1.79× faster |
 
 ## Known costs / future work
 
-* Path predicates now build each path from the cached parent directory path
-  (244 ms → 112 ms); globs are dominated by `filepath.Match`.
 * Node records could shrink (owner/group/mode/link count are only needed for
   display and some filters) if memory on 10 M+ entry trees matters.
 * Cold-cache HDD benchmarks still need to be run with root access.
