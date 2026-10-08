@@ -33,12 +33,11 @@ canvas renderer is ported as-is, plus line-diffed frame output).
 ## Benchmarks
 
 Machine: Intel Core i7-7700 (4C/8T), 32 GiB, ext4 on md RAID over 7200 rpm
-HDDs. Go 1.27.1, Rust 1.91.1 (`lto`, `codegen-units = 1`). The host was
-shared and heavily loaded during the runs (load average 30–50 on 8 threads),
-so absolute times are inflated 2–4× compared with PERFORMANCE.md. To keep the
-comparison fair, Go and Rust runs were interleaved and the tables report
-best-of (micro) or median and best (end-to-end). Re-run on an idle machine
-before quoting absolute numbers:
+HDDs. Go 1.27.1, Rust 1.91.1 (`lto`, `codegen-units = 1`). The host is
+shared, and its load average was 5–9 on 8 threads during the runs. Go's
+absolute times are close to those in PERFORMANCE.md. Go and Rust runs were
+interleaved; the tables report best-of (micro) or median and best
+(end-to-end). To re-run:
 
 ```
 go test -c -o /tmp/tui.test ./internal/tui && go test -c -o /tmp/treemap.test ./internal/treemap
@@ -53,43 +52,42 @@ The tree is 1,008,201 synthetic nodes, rendered at 200×60.
 
 | benchmark | Go | Rust | speed-up |
 |---|---:|---:|---:|
-| treemap/Squarify(300) | 299.3 µs | 22.2 µs | 13.48× |
-| treemap/Neighbour(300) | 5.0 µs | 2.8 µs | 1.76× |
-| tui/BigColdFrame | 86.88 ms | 29.32 ms | 2.96× |
-| tui/BigResize | 7.15 ms | 4.76 ms | 1.50× |
-| tui/BigFlatDirCold | 86.33 ms | 22.90 ms | 3.77× |
-| tui/BigNavigate | 4.85 ms | 4.07 ms | 1.19× |
-| tui/BigFilter/size > 1MB | 78.62 ms | 59.51 ms | 1.32× |
-| tui/BigFilter/*.dat AND size > 500k | 302.03 ms | 154.90 ms | 1.95× |
-| tui/BigFilter/path contains sub3 | 337.79 ms | 136.85 ms | 2.47× |
+| treemap/Squarify(300) | 84.3 µs | 8.4 µs | 10.07× |
+| treemap/Neighbour(300) | 2.1 µs | 1.1 µs | 1.94× |
+| tui/BigColdFrame | 36.01 ms | 11.34 ms | 3.18× |
+| tui/BigResize | 2.02 ms | 1.50 ms | 1.35× |
+| tui/BigFlatDirCold | 32.00 ms | 9.37 ms | 3.41× |
+| tui/BigNavigate | 1.50 ms | 1.31 ms | 1.14× |
+| tui/BigFilter/size > 1MB | 29.44 ms | 26.75 ms | 1.10× |
+| tui/BigFilter/*.dat AND size > 500k | 121.40 ms | 67.84 ms | 1.79× |
+| tui/BigFilter/path contains sub3 | 101.86 ms | 63.80 ms | 1.60× |
 
 ### End to end (`~/go/pkg/mod`: 388k files + 65k dirs, warm cache)
 
 | scenario | Go median | Rust median | Go best | Rust best | Go RSS | Rust RSS | speed-up |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| scan, 1 workers | 4.68 s | 5.51 s | 4.34 s | 4.86 s | 114 MB | 75 MB | 0.85× |
-| scan, 8 workers | 2.03 s | 2.03 s | 1.61 s | 1.42 s | 113 MB | 78 MB | 1.00× |
-| scan, 32 workers | 3.09 s | 2.59 s | 2.85 s | 2.07 s | 116 MB | 89 MB | 1.19× |
-| scan + save snapshot | 4.69 s | 3.60 s | 4.02 s | 3.29 s | 117 MB | 80 MB | 1.30× |
-| load own snapshot | 1.20 s | 0.71 s | 0.71 s | 0.48 s | 85 MB | 78 MB | 1.69× |
-| load Go snapshot | 1.03 s | 1.14 s | 0.84 s | 0.48 s | 85 MB | 78 MB | 0.90× |
-| scan + JSON export | 6.10 s | 4.74 s | 5.44 s | 4.16 s | 152 MB | 79 MB | 1.29× |
-| scan + top 50 largest files | 4.49 s | 4.31 s | 3.62 s | 3.65 s | 117 MB | 79 MB | 1.04× |
+| scan, 1 workers | 1.89 s | 1.52 s | 1.72 s | 1.44 s | 112 MB | 75 MB | 1.24× |
+| scan, 8 workers | 0.63 s | 0.47 s | 0.58 s | 0.43 s | 117 MB | 76 MB | 1.34× |
+| scan, 32 workers | 0.60 s | 0.46 s | 0.48 s | 0.43 s | 118 MB | 80 MB | 1.30× |
+| scan + save snapshot | 1.22 s | 0.75 s | 1.13 s | 0.71 s | 119 MB | 77 MB | 1.63× |
+| load own snapshot | 0.34 s | 0.23 s | 0.30 s | 0.23 s | 85 MB | 78 MB | 1.48× |
+| load Go snapshot | 0.36 s | 0.26 s | 0.30 s | 0.23 s | 85 MB | 78 MB | 1.38× |
+| scan + JSON export | 1.27 s | 0.86 s | 1.04 s | 0.68 s | 153 MB | 76 MB | 1.48× |
+| scan + top 50 largest files | 0.70 s | 0.60 s | 0.64 s | 0.47 s | 114 MB | 76 MB | 1.17× |
 
 Reading the numbers:
 
-* **Scanning** is syscall-bound (`statx`/`getdents` were about 60% of Go's
-  profile), so wall time is roughly at parity. Rust edges ahead at high
-  worker counts. The single-worker case is about 15% slower, but that run was
-  the noisiest of the set.
-* **Memory**: peak RSS is 30–48% lower (78 MB vs 113 MB while scanning
-  458k nodes). The JSON export streams without Go's per-node allocations
-  (79 MB vs 152 MB).
-* **Snapshots**: loading is about 1.7× faster on the median. The two binaries
-  load each other's files.
-* **UI**: cold frames are 3–3.8× faster, and squarified layout is about 13×
-  faster. Navigation and resize gain less (1.2–1.5×) because they mostly
+* **Scanning** is 1.2–1.3× faster at every worker count. It is syscall-bound
+  (`statx`/`getdents`), so the gain comes from lower per-entry overhead in the
+  controller (no GC, no per-chunk allocation churn), not from faster I/O.
+* **Memory**: peak RSS is about a third lower (76 MB vs 117 MB while
+  scanning 458k nodes). The JSON export halves memory (76 MB vs 153 MB) because
+  it streams without per-node allocations.
+* **Snapshots**: scan + save is 1.6× faster and load is 1.4–1.5× faster. The
+  two binaries load each other's files.
+* **UI**: cold frames are 3.2–3.4× faster, and squarified layout is about 10×
+  faster. Navigation and resize gain less (1.1–1.35×) because they mostly
   reuse cached layout.
-* **Filters**: 1.3–2.5× faster. This required caching lower-cased directory
+* **Filters**: 1.1–1.8× faster. This required caching lower-cased directory
   paths in a `Vec` with reused buffers, and a `*.ext` fast path in the
   `filepath.Match` port.
