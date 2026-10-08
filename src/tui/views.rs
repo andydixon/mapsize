@@ -462,11 +462,9 @@ impl TopView {
                             val.insert(id, n.size - n.alloc);
                         }
                     }
-                    TopMode::Hardlinks => {
-                        if n.has(FLAG_HARDLINKED) {
-                            tk.offer(id, n.size);
-                            val.insert(id, n.size);
-                        }
+                    TopMode::Hardlinks if n.has(FLAG_HARDLINKED) => {
+                        tk.offer(id, n.size);
+                        val.insert(id, n.size);
                     }
                     _ => {}
                 }

@@ -686,8 +686,11 @@ impl JsonTime {
         if self.secs >= 0 {
             UNIX_EPOCH + Duration::new(self.secs as u64, self.nanos)
         } else {
-            UNIX_EPOCH - Duration::from_secs(self.secs.unsigned_abs())
-                + Duration::from_nanos(self.nanos as u64)
+            // Windows cannot represent times before 1601 (such as the zero
+            // time, year 1); those clamp to the Unix epoch.
+            UNIX_EPOCH
+                .checked_sub(Duration::from_secs(self.secs.unsigned_abs()))
+                .map_or(UNIX_EPOCH, |t| t + Duration::from_nanos(self.nanos as u64))
         }
     }
 
@@ -897,7 +900,10 @@ mod tests {
         assert_eq!(d.removed.len(), 1);
         assert_eq!(&d.old.node(d.removed[0]).name[..], b"b");
         let ch = d.changes(&nw, 10, al);
-        let paths: HashMap<&str, Status> = ch.iter().map(|c| (c.path.as_str(), c.status)).collect();
+        let paths: HashMap<String, Status> = ch
+            .iter()
+            .map(|c| (c.path.replace('\\', "/"), c.status))
+            .collect();
         assert_eq!(paths.get("/srv/a/x.iso"), Some(&Status::Grew), "{ch:?}");
         assert_eq!(paths.get("/srv/b"), Some(&Status::Removed), "{ch:?}");
         assert_eq!(paths.get("/srv/c"), Some(&Status::Added), "{ch:?}");
@@ -970,6 +976,7 @@ mod tests {
             Some(JsonTime::default())
         );
         assert_eq!(JsonTime::default().format(), "0001-01-01T00:00:00Z");
+        #[cfg(not(windows))]
         assert_eq!(
             JsonTime::from_system(JsonTime::default().to_system()),
             JsonTime::default()
@@ -1010,7 +1017,10 @@ mod tests {
             .unwrap();
         assert_eq!(t.node(iso).size, 10000);
         assert_eq!(t.ext_name(t.node(iso)), "iso");
-        assert!(t.path_string(iso).ends_with("/tree/a/x.iso"));
+        assert!(t
+            .path_string(iso)
+            .replace('\\', "/")
+            .ends_with("/tree/a/x.iso"));
         // And it survives a save/load round trip unchanged.
         let again = load(&saved(&t)[..]).unwrap();
         assert_eq!(

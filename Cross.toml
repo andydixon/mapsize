@@ -1,0 +1,11 @@
+# The cross image for NetBSD lacks libexecinfo, which Rust's standard library
+# links on NetBSD. Take it (and libelf, which it needs) from the official
+# NetBSD 9.2 base set, matching the image's libc, checked against the
+# release's published SHA512.
+[target.x86_64-unknown-netbsd]
+pre-build = [
+    "curl -fsSL -o /tmp/base.tar.xz https://archive.netbsd.org/pub/NetBSD-archive/NetBSD-9.2/amd64/binary/sets/base.tar.xz",
+    "echo '961511ec63f4803529aeb057632e2b8cf87e73bfdfed445d7521b607f573245359163b9f6b6a158fa80de7a994cf3727af384ec42ac8d9ccdd59a87197a41b55  /tmp/base.tar.xz' | sha512sum -c",
+    "tar -xJf /tmp/base.tar.xz -C /usr/local/x86_64-unknown-netbsd --strip-components=2 ./usr/lib/libexecinfo.so ./usr/lib/libexecinfo.so.0 ./usr/lib/libexecinfo.so.0.0 ./usr/lib/libelf.so ./usr/lib/libelf.so.2 ./usr/lib/libelf.so.2.0",
+    "rm /tmp/base.tar.xz",
+]

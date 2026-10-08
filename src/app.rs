@@ -110,7 +110,7 @@ fn interrupt_cancel() -> Cancel {
         }
     }
     let c = CANCEL.get_or_init(Cancel::new).clone();
-    unsafe { libc::signal(libc::SIGINT, on_sigint as libc::sighandler_t) };
+    unsafe { libc::signal(libc::SIGINT, on_sigint as *const () as libc::sighandler_t) };
     c
 }
 

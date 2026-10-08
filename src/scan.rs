@@ -916,15 +916,18 @@ pub(crate) mod tests {
     fn hostile_names_preserved() {
         use std::os::unix::ffi::OsStrExt;
         let root = TempDir::new("names");
-        let names: [&[u8]; 6] = [
+        #[allow(unused_mut)]
+        let mut names: Vec<&[u8]> = vec![
             "日本語.txt".as_bytes(),
             "emoji-🎉.png".as_bytes(),
             b"esc\x1b[31mred",
             b"nl\nname",
             b"sp ace",
-            b"bad\xffutf8",
         ];
-        for n in names {
+        // APFS rejects names that are not valid UTF-8.
+        #[cfg(not(target_os = "macos"))]
+        names.push(b"bad\xffutf8");
+        for &n in &names {
             std::fs::write(root.0.join(std::ffi::OsStr::from_bytes(n)), b"x").unwrap();
         }
         let t = run_scan(

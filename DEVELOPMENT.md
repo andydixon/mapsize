@@ -1,7 +1,8 @@
 # Development
 
-Requires a stable Rust toolchain (`rustup`); the dependencies are pinned in
-`Cargo.lock`. No C toolchain beyond what Rust itself needs.
+Requires `rustup`: `rust-toolchain.toml` pins the compiler (so local builds
+match CI), and `Cargo.lock` pins the dependencies. No C toolchain beyond what
+Rust itself needs.
 
 ```sh
 make build       # target/release/mapsize
@@ -27,7 +28,7 @@ binaries under qemu.
 | Linux | amd64, arm64, 386, arm (v7), riscv64 | `*-unknown-linux-musl` (static) | cargo-zigbuild + zig |
 | Windows | amd64, arm64 | `x86_64-pc-windows-gnu`, `aarch64-pc-windows-gnullvm` | cargo-zigbuild + zig |
 | macOS | amd64, arm64 | `*-apple-darwin` | cargo on a Mac (or zigbuild) |
-| FreeBSD, NetBSD | amd64 | `x86_64-unknown-{freebsd,netbsd}` | cross + Docker |
+| FreeBSD, NetBSD | amd64 | `x86_64-unknown-{freebsd,netbsd}` | cross + Docker (`Cross.toml` adds NetBSD's libexecinfo) |
 
 Platform differences live in `src/platform.rs` (and `cfg` blocks where the
 terminal code needs them); nothing else switches on the OS.
