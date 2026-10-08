@@ -1,4 +1,5 @@
-//! A clonable cancellation token, the equivalent of a Go context's Done.
+//! A clonable cancellation token: a flag to poll plus a channel that is
+//! closed on cancellation, so it can also be waited on in a select.
 
 use crossbeam_channel::{Receiver, Sender};
 use std::sync::atomic::{AtomicBool, Ordering};

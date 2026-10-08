@@ -1,5 +1,5 @@
-//! In-process benchmarks mirroring the Go `go test -bench` suite
-//! (internal/tui/bench_test.go, internal/treemap/treemap_test.go):
+//! In-process benchmarks of the TUI model (render, navigation, filtering)
+//! and the treemap layout:
 //!
 //!     cargo run --release --example bench
 //!

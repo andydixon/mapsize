@@ -1,4 +1,5 @@
-//! Headless model tests (ports of tui_test.go, nest_test.go, live_test.go).
+//! Headless model tests: rendering and navigation, nested directories,
+//! and a model driven by a live scan.
 
 use super::bench::opts_for;
 use super::canvas::rgb;
@@ -536,7 +537,7 @@ fn copy_refuses_control_characters() {
     );
 }
 
-// ---- nest_test.go -----------------------------------------------------------
+// ---- Nested directories -----------------------------------------------------
 
 fn root_tree() -> Tree {
     let mut t = Tree::new(b"/", Kind::Dir);
@@ -611,7 +612,7 @@ fn reveal_headless_zooms_map() {
     );
 }
 
-// ---- live_test.go -----------------------------------------------------------
+// ---- Live scan --------------------------------------------------------------
 
 /// Renders, navigates, filters and resizes while the scanner mutates the
 /// inventory, verifying the locking discipline.

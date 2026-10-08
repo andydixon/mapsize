@@ -213,7 +213,11 @@ pub fn summary(w: &mut dyn Write, t: &Tree) -> io::Result<()> {
         textutil::size(r.tot_alloc),
         r.tot_alloc
     )?;
-    writeln!(w, "Elapsed         {}", textutil::go_duration(st.elapsed()))?;
+    writeln!(
+        w,
+        "Elapsed         {}",
+        textutil::fmt_duration(st.elapsed())
+    )?;
     for (k, &c) in st.err_counts.iter().enumerate() {
         if c > 0 {
             writeln!(

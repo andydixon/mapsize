@@ -1,5 +1,5 @@
 //! Benchmark hooks: the model driven with no terminal, rendering in
-//! true colour, as the Go benchmarks do.
+//! true colour.
 
 use super::model::{Key, Model, Msg, Options, Profile};
 use crate::cancel::Cancel;

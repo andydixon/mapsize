@@ -357,9 +357,9 @@ pub fn rfc3339_utc(unix_nanos: i64) -> String {
     )
 }
 
-/// Formats a duration like Go's time.Duration.String after rounding to
-/// milliseconds, e.g. "1.234s", "250ms", "2m3.5s".
-pub fn go_duration(d: Duration) -> String {
+/// Formats a duration rounded to milliseconds: "0s", "250ms", "1.234s",
+/// "2m3.5s", "1h0m5s" (trailing zeros of the seconds trimmed).
+pub fn fmt_duration(d: Duration) -> String {
     let ms = (d.as_nanos() + 500_000) / 1_000_000;
     if ms == 0 {
         return "0s".into();
@@ -393,8 +393,8 @@ mod time_tests {
             rfc3339_utc(1_791_456_000 * 1_000_000_000),
             "2026-10-08T10:40:00Z"
         );
-        assert_eq!(go_duration(Duration::from_micros(1_234_400)), "1.234s");
-        assert_eq!(go_duration(Duration::from_millis(250)), "250ms");
-        assert_eq!(go_duration(Duration::from_millis(123_500)), "2m3.5s");
+        assert_eq!(fmt_duration(Duration::from_micros(1_234_400)), "1.234s");
+        assert_eq!(fmt_duration(Duration::from_millis(250)), "250ms");
+        assert_eq!(fmt_duration(Duration::from_millis(123_500)), "2m3.5s");
     }
 }

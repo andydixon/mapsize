@@ -100,7 +100,7 @@ fn start_source(
     Ok((Some(s), t))
 }
 
-/// Cancels on SIGINT for report mode, like Go's signal.NotifyContext.
+/// A token cancelled by SIGINT (Ctrl+C), for report mode.
 fn interrupt_cancel() -> Cancel {
     static CANCEL: std::sync::OnceLock<Cancel> = std::sync::OnceLock::new();
     extern "C" fn on_sigint(_: libc::c_int) {

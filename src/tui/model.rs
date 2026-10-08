@@ -58,7 +58,7 @@ pub(crate) enum Profile {
     Ascii,
 }
 
-/// A key press. name follows Bubble Tea's keystroke names ("a", "G",
+/// A key press. name is the keystroke name ("a", "G",
 /// "ctrl+c", "shift+tab", "space", "pgdown", …); text is the inserted
 /// text for printable keys.
 #[derive(Clone, Debug, Default)]
@@ -69,7 +69,7 @@ pub(crate) struct Key {
 }
 
 impl Key {
-    /// A key from its keystroke name, as the Go tests build them: single
+    /// A key from its keystroke name, as tests build them: single
     /// characters insert themselves, "space" inserts " ".
     pub fn from_name(s: &str) -> Key {
         let text = match s {
