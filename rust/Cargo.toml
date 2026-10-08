@@ -7,6 +7,7 @@ description = "Interactive terminal disk usage analyser (Rust port)"
 
 [dependencies]
 libc = "0.2"
+regex = "1"
 crossbeam-channel = "0.5"
 crossterm = "0.28"
 flate2 = "1"
