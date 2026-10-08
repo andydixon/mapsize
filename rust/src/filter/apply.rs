@@ -2,7 +2,6 @@ use super::eval::Ctx;
 use super::parser::Query;
 use crate::cancel::Cancel;
 use crate::inventory::{NodeId, SizeMode, Tree, FLAG_HARDLINK_DUP};
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -45,7 +44,7 @@ pub fn apply(cancel: &Cancel, t: &Tree, q: Arc<Query>, m: SizeMode) -> Option<Fi
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos() as i64);
     let mut c = Ctx::new(t, 0, now);
     if q.uses_path {
-        c.dir_paths = Some(HashMap::new());
+        c.dir_paths = Some(vec![String::new(); n]);
     }
     for i in 0..n {
         if i & 0xffff == 0 && cancel.is_cancelled() {
@@ -53,11 +52,11 @@ pub fn apply(cancel: &Cancel, t: &Tree, q: Arc<Query>, m: SizeMode) -> Option<Fi
         }
         let id = i as NodeId;
         let nd = t.node(id);
-        (c.id, c.node, c.path) = (id, nd, None);
+        c.reset(id);
         if c.dir_paths.is_some() && nd.is_dir() {
-            let p = c.lower_path();
-            c.dir_paths.as_mut().unwrap().insert(id, p.clone());
-            c.path = Some(p);
+            c.fill_path();
+            let p = c.path.clone();
+            c.dir_paths.as_mut().unwrap()[i] = p;
         }
         if i > 0 && q.matches(&mut c) {
             matched[i] = true;
