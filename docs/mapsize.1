@@ -142,18 +142,10 @@ colouring, or prints the most significant changes with \fB\-\-no\-ui\fR
 (\fB\-\-top\fR sets how many; default 30).
 .SS Diagnostics
 .TP
-.BI \-\-log " FILE"
-Append a log to \fIFILE\fR without disturbing the interface. Full paths are
-logged only at \fBdebug\fR level and above.
-.TP
-.BI \-\-log\-level " LEVEL"
-.BR error ", " warn ", " info " (default), " debug " or " trace .
-.TP
-.BI \-\-cpuprofile " FILE"
-Write a Go CPU profile.
-.TP
-.BI \-\-memprofile " FILE"
-Write a Go heap profile on exit.
+.BI \-\-log " FILE" "\fR, \fP\-\-log\-level " LEVEL
+Accepted for compatibility with earlier releases; currently no log is
+written. \fILEVEL\fR must still be one of
+.BR error ", " warn ", " info ", " debug " or " trace .
 .TP
 .B \-\-version
 Print the version and exit.
