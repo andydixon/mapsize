@@ -3,14 +3,14 @@
 Status markers: `[x]` done, `[~]` partial, `[ ]` not started.
 
 ## 0.1 — inventory engine
-- [x] Go project skeleton, Makefile, CI
+- [x] project skeleton, Makefile, CI
 - [x] portable filesystem scanner, bounded worker pool, no-deadlock scheduler
 - [x] inventory node model, incremental aggregation
 - [x] cancellation, progress counters, error accounting
 - [x] CLI: `--top`, `--json`, `--csv`, `--no-ui`
 
 ## 0.2 — TUI shell
-- [x] full-screen Bubble Tea v2 app, canvas renderer, frame cache
+- [x] full-screen terminal app, canvas renderer, frame cache
 - [x] responsive layout (large / medium / small / too-small)
 - [x] resize handling, status bar, progressive display, directory list
 

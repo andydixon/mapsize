@@ -1,6 +1,6 @@
 # Homebrew formula template for mapsize. `make brew-formula` fills in the
 # version and the checksum of the GitHub source tarball and writes the
-# result to bin/homebrew/mapsize.rb; copy that into your tap
+# result to dist/homebrew/mapsize.rb; copy that into your tap
 # (github.com/andydixon/homebrew-tap, Formula/mapsize.rb).
 class Mapsize < Formula
   desc "Interactive terminal disk usage analyser with a navigable treemap"
@@ -10,11 +10,10 @@ class Mapsize < Formula
   license "GPL-3.0-or-later"
   head "https://github.com/andydixon/mapsize.git", branch: "master"
 
-  depends_on "go" => :build
+  depends_on "rust" => :build
 
   def install
-    ldflags = "-X github.com/andydixon/mapsize/internal/brand.Version=#{version}"
-    system "go", "build", *std_go_args(ldflags:), "./cmd/mapsize"
+    system "cargo", "install", *std_cargo_args
     man1.install "docs/mapsize.1"
   end
 

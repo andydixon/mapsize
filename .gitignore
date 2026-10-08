@@ -1,5 +1,5 @@
+/target
+/dist
 bin/
 *.msz
-*.prof
-*.test
-/mapsize
+!src/snapshot/testdata/*.msz

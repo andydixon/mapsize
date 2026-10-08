@@ -10,10 +10,11 @@
 # Every index is rebuilt over all the packages in the repository, so other
 # projects publishing there with their copy of this script are kept.
 #
-# Needs: go, docker, gpg, apt-ftparchive (apt-utils), flock.
+# Needs: cargo with cargo-zigbuild and zig (static musl cross-builds), curl
+# (to fetch the pinned nfpm), docker, gpg, apt-ftparchive (apt-utils), flock.
 #   REPO_DIR        where the repository lives (default below)
 #   REPO_GNUPGHOME  GnuPG home holding the signing key (default below)
-#   ARCHS           Go architectures to package (default below)
+#   ARCHS           package architectures (default below)
 #
 # The same script, with its own project block, is in ../vault/packaging.
 set -euo pipefail
@@ -27,19 +28,30 @@ HOMEPAGE=https://github.com/andydixon/mapsize
 LICENSE=GPL-3.0-or-later
 MANPAGES=docs/*.1
 DOCS="README.md CHANGELOG.md LICENSE"
-# build OUT: build the binary to OUT, in the source tree, with GOOS, GOARCH
-# and GOARM set and VERSION the release.
+# Package architecture -> Rust target (static musl binaries).
+triple() {
+	case $1 in
+	amd64) echo x86_64-unknown-linux-musl ;;
+	arm64) echo aarch64-unknown-linux-musl ;;
+	arm) echo armv7-unknown-linux-musleabihf ;;
+	386) echo i686-unknown-linux-musl ;;
+	riscv64) echo riscv64gc-unknown-linux-musl ;;
+	*) return 1 ;;
+	esac
+}
+# build ARCH OUT: build the binary for ARCH to OUT, in the source tree.
 build() {
-	CGO_ENABLED=0 go build -trimpath \
-		-ldflags "-s -w -X github.com/andydixon/mapsize/internal/brand.Version=$VERSION" \
-		-o "$1" ./cmd/mapsize
+	local t
+	t=$(triple "$1") || die "no Rust target for $1"
+	RUSTFLAGS="--remap-path-prefix=$PWD=$NAME" cargo zigbuild --quiet --release --locked --target "$t"
+	install -D -m 0755 "target/$t/release/$NAME" "$2"
 }
 # ----------------------------------------------------------------------------
 
 REPO_DIR=${REPO_DIR:-/home/andy/domains/repo.dixon.cx/public_html}
 REPO_GNUPGHOME=${REPO_GNUPGHOME:-$HOME/.config/repo.dixon.cx/gnupg}
 ARCHS=${ARCHS:-"amd64 arm64 arm 386 riscv64"}
-NFPM="go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.41.1"
+NFPM="$(cd "$(dirname "$0")/.." && pwd)/scripts/nfpm.sh"
 SUITE=stable
 COMPONENT=main
 ARCH_REPO=dixon # the pacman repository name: [dixon]
@@ -47,7 +59,7 @@ ARCH_REPO=dixon # the pacman repository name: [dixon]
 say() { echo "repo: $*" >&2; }
 die() { say "$*"; exit 1; }
 
-for tool in go docker gpg apt-ftparchive flock; do
+for tool in cargo cargo-zigbuild zig curl docker gpg apt-ftparchive flock; do
 	command -v $tool >/dev/null || die "needs $tool"
 done
 [[ -d $REPO_DIR ]] || die "$REPO_DIR does not exist"
@@ -70,9 +82,9 @@ gpg --batch --armor --export-secret-keys "$KEY" >"$WORK/signing.asc"
 say "building $PACKAGE $VERSION for $ARCHS"
 mkdir -p "$WORK/out"
 for arch in $ARCHS; do
-	goarm= nfarch=$arch
-	[[ $arch == arm ]] && goarm=7 nfarch=arm7
-	(cd "$WORK/src" && GOOS=linux GOARCH=$arch GOARM=$goarm build "$WORK/bin-$arch/$NAME")
+	nfarch=$arch
+	[[ $arch == arm ]] && nfarch=arm7
+	(cd "$WORK/src" && build "$arch" "$WORK/bin-$arch/$NAME")
 	{
 		cat <<-EOF
 		name: $PACKAGE
