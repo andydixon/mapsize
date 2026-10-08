@@ -150,7 +150,7 @@ mod tests {
             );
         }
         assert!(names(&tr, "[").is_empty()); // malformed bare glob matches nothing
-        assert!(names(&tr, "voilà\u{a0}x").is_empty()); // Go's lexer hangs on byte 0xA0
+        assert!(names(&tr, "voilà\u{a0}x").is_empty()); // regression: a lexer once hung on byte 0xA0 (NBSP)
     }
 
     #[test]

@@ -24,7 +24,7 @@ fn tok(kind: TokKind, val: &str, pos: usize) -> Token {
     }
 }
 
-/// ASCII white space as Go's unicode.IsSpace sees it.
+/// ASCII white space: space, \t, \n, \v, \f, \r.
 fn is_space(c: u8) -> bool {
     matches!(c, b' ' | b'\t' | b'\n' | b'\x0b' | b'\x0c' | b'\r')
 }

@@ -309,7 +309,7 @@ fn has_glob(s: &str) -> bool {
 pub(super) fn name_match(v: &str) -> Expr {
     let lv = v.to_lowercase();
     if has_glob(v) {
-        // Go's filepath.Match never matches a malformed pattern.
+        // A malformed glob never matches.
         return if glob_ok(lv.as_bytes()) {
             Expr::Glob(Field::Name, lv)
         } else {
@@ -319,8 +319,9 @@ pub(super) fn name_match(v: &str) -> Expr {
     Expr::Contains(Field::Name, lv)
 }
 
-/// Reports whether pattern is well formed by Go's filepath.Match rules
-/// (fnmatch, which does the matching, accepts anything).
+/// Reports whether pattern is a well-formed glob (see
+/// `platform::glob_match`): every `[` class is closed and non-empty, ranges
+/// have both ends, and no escape is dangling.
 fn glob_ok(p: &[u8]) -> bool {
     // One possibly escaped character of a range; None if malformed.
     let esc = |mut i: usize| -> Option<usize> {
@@ -461,13 +462,12 @@ pub fn parse_age(s: &str) -> Result<Duration, String> {
             ))
         }
     };
-    // Saturates where Go's time.Duration would overflow.
+    // Saturates beyond u64 nanoseconds (about 584 years).
     Ok(Duration::from_nanos((v * secs * 1e9) as u64))
 }
 
 /// Parses "2006-01-02", "2006-01-02T15:04", "2006-01-02 15:04" (local time)
-/// or RFC 3339, as Go's time.ParseInLocation with time.Local would, into unix
-/// nanoseconds.
+/// or RFC 3339 (with its own offset) into unix nanoseconds.
 fn parse_date(s: &str) -> Option<i64> {
     let b = s.as_bytes();
     let fixed = |i: usize, n: usize| -> Option<i64> {
@@ -492,7 +492,7 @@ fn parse_date(s: &str) -> Option<i64> {
     if sep != b'T' && sep != b' ' {
         return None;
     }
-    // Go's "15" hour accepts one or two digits.
+    // The hour may have one or two digits.
     let mut i = 11;
     let hl = if fixed(i, 2).is_some() { 2 } else { 1 };
     let h = fixed(i, hl)?;

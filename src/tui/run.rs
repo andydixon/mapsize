@@ -162,7 +162,7 @@ fn enter_terminal(mouse: bool) -> io::Result<()> {
     Ok(())
 }
 
-/// Bubble Tea keystroke name for a key event.
+/// The keystroke name (see `Key`) for a key event.
 fn convert_key(ev: KeyEvent) -> Option<Key> {
     if ev.kind == KeyEventKind::Release {
         return None;
@@ -251,7 +251,7 @@ fn convert(ev: Event) -> Option<Msg> {
                 _ => None,
             }
         }
-        // Pastes are ignored, as in the Go version.
+        // Pastes are ignored.
         _ => None,
     }
 }

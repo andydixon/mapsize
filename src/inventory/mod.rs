@@ -80,7 +80,7 @@ pub struct Node {
     pub files: u32, // recursive counts beneath (dirs excludes self)
     pub dirs: u32,
     pub errors: u32, // recursive error count beneath and including self
-    pub mode: u32,   // Go fs.FileMode bit layout (see platform::mode)
+    pub mode: u32,   // portable mode bits (see platform::mode)
     pub uid: u32,
     pub gid: u32,
     pub nlink: u32,

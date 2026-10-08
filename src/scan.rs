@@ -651,7 +651,8 @@ impl Controller {
     }
 }
 
-/// The OS error text without Rust's " (os error N)" suffix, matching Go.
+/// The OS error text, lower-cased and without the " (os error N)" suffix,
+/// e.g. "permission denied".
 fn err_msg(e: &io::Error) -> String {
     let s = e.to_string();
     match s.rfind(" (os error ") {

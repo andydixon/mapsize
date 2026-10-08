@@ -326,7 +326,7 @@ pub(crate) mod tests {
         }
     }
 
-    /// The Go fuzz target's property, run over fixed seeds.
+    /// Squarify invariants over random partitions, from fixed seeds.
     #[test]
     fn squarify_random_partitions() {
         let mut rng = Rng::new(1);

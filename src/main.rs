@@ -5,7 +5,7 @@ use mapsize::inventory::SizeMode;
 use mapsize::{brand, config, scan, snapshot, textutil};
 use std::path::Path;
 
-/// Flags taking a value (Go's flag package: `-f v`, `-f=v`, `--f v`, `--f=v`).
+/// Flags taking a value, written `-f v`, `-f=v`, `--f v` or `--f=v`.
 const VALUE_FLAGS: &[&str] = &[
     "workers",
     "follow-symlinks",
@@ -71,8 +71,8 @@ Flags:
   --theme NAME            colour theme: default, dark, high-contrast, mono
   --color MODE            colour support: auto, truecolor, 256, 16, none
   --no-mouse              disable mouse support
-  --log FILE              write a debug log to FILE
-  --log-level LEVEL       log level: error, warn, info, debug, trace
+  --log FILE              accepted for compatibility; ignored
+  --log-level LEVEL       accepted for compatibility (error, warn, info, debug, trace); ignored
   --version               print version and exit
 "
     );
@@ -171,7 +171,7 @@ fn run(args: Vec<String>) -> i32 {
             return fail(format!("invalid --log-level {l:?}"));
         }
     }
-    // ponytail: --log is accepted for CLI compatibility; the Rust port has no debug logging yet.
+    // ponytail: --log and --log-level are accepted for compatibility and ignored; there is no debug logging.
 
     let (depth, top, largest) = match (int("depth", -1), int("top", 0), int("largest-files", 0)) {
         (Ok(d), Ok(t), Ok(l)) => (d, t.max(0) as usize, l.max(0) as usize),

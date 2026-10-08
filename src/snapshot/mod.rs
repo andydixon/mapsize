@@ -21,10 +21,22 @@
 //! sha256     32 bytes over the uncompressed body
 //! ```
 //!
-//! Varints are Go's encoding/binary (zig-zag for signed). Nodes are written
-//! in ID order; a parent always precedes its children, so a reader can
-//! rebuild the tree in one pass and malformed input cannot create cycles.
-//! Aggregates are recomputed on load, never trusted.
+//! A uvarint is unsigned LEB128: 7 bits per byte, least significant group
+//! first, the high bit set on every byte but the last; at most 10 bytes for
+//! 64 bits. A varint (signed) is zig-zag encoded first, (v << 1) ^ (v >> 63),
+//! so small magnitudes of either sign stay short: 0, -1, 1, -2 → 0, 1, 2, 3.
+//!
+//! In the meta JSON, timestamps are RFC 3339 strings with nanoseconds
+//! (trailing zeros trimmed) and the writer's UTC offset, or "Z" for UTC,
+//! e.g. "2026-10-08T10:40:00.123456789+01:00". An unset time is
+//! "0001-01-01T00:00:00Z"; null is read as unset.
+//!
+//! Compatibility: snapshots written by mapsize 1.x load unchanged, and the
+//! mode bits (see `platform::mode`) mean the same on every OS.
+//!
+//! Nodes are written in ID order; a parent always precedes its children, so
+//! a reader can rebuild the tree in one pass and malformed input cannot
+//! create cycles. Aggregates are recomputed on load, never trusted.
 
 mod compare;
 
@@ -65,9 +77,9 @@ const FLAG_GZIPPED: u16 = 1;
 #[serde(default)]
 struct Meta {
     root: String,
-    created: GoTime,
-    start: GoTime,
-    end: GoTime,
+    created: JsonTime,
+    start: JsonTime,
+    end: JsonTime,
     complete: bool,
     cancelled: bool,
     files: i64,
@@ -131,7 +143,7 @@ impl<W: Write> Writer<W> {
         self.bytes(&b[..=i])
     }
     fn varint(&mut self, v: i64) -> io::Result<()> {
-        self.uvarint(((v << 1) ^ (v >> 63)) as u64) // zig-zag, as encoding/binary.PutVarint
+        self.uvarint(((v << 1) ^ (v >> 63)) as u64) // zig-zag
     }
     fn str(&mut self, s: &[u8]) -> io::Result<()> {
         self.uvarint(s.len() as u64)?;
@@ -154,11 +166,11 @@ pub fn save(out: &mut dyn Write, t: &Tree) -> io::Result<()> {
     let st = &t.stats;
     let m = Meta {
         root: String::from_utf8_lossy(&st.root).into_owned(),
-        created: GoTime::from_system(SystemTime::now()),
-        start: GoTime::from_system(st.start).local(),
+        created: JsonTime::from_system(SystemTime::now()),
+        start: JsonTime::from_system(st.start).local(),
         end: st
             .end
-            .map(|e| GoTime::from_system(e).local())
+            .map(|e| JsonTime::from_system(e).local())
             .unwrap_or_default(),
         complete: st.complete,
         cancelled: st.cancelled,
@@ -233,7 +245,8 @@ pub fn save_file(path: &Path, t: &Tree) -> io::Result<()> {
     res
 }
 
-/// Creates a new 0600 file named .mapsize-*.tmp in dir (like os.CreateTemp).
+/// Creates a new private (0600 on Unix) file named .mapsize-<random>.tmp in
+/// dir, retrying on name collisions.
 fn create_temp(dir: &Path) -> io::Result<(PathBuf, File)> {
     let seed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -303,7 +316,8 @@ impl Body {
         Ok(self.buf[self.pos - 1])
     }
 
-    /// Fills out completely (errors like io.ReadFull).
+    /// Fills out completely: "EOF" if the stream ends before the first byte,
+    /// "unexpected EOF" if it ends part way.
     fn read_full(&mut self, out: &mut [u8]) -> Result<(), String> {
         let mut done = 0;
         while done < out.len() {
@@ -332,7 +346,7 @@ impl Body {
 
     fn varint(&mut self, what: &str) -> Result<i64, String> {
         let ux = read_uvarint(self).map_err(|e| format!("snapshot: bad {what}: {e}"))?;
-        let v = (ux >> 1) as i64; // zig-zag, as encoding/binary.PutVarint
+        let v = (ux >> 1) as i64; // undo zig-zag
         Ok(if ux & 1 != 0 { !v } else { v })
     }
 
@@ -349,7 +363,7 @@ impl Body {
     }
 }
 
-/// encoding/binary.ReadUvarint over the body.
+/// Reads a uvarint (LEB128) from the body; more than 64 bits is an error.
 fn read_uvarint(b: &mut Body) -> Result<u64, String> {
     let (mut x, mut s) = (0u64, 0u32);
     for i in 0..10 {
@@ -611,32 +625,32 @@ fn valid_name(s: &[u8]) -> bool {
     !s.is_empty() && s != b"." && s != b".." && !s.iter().any(|&c| c == b'/' || c == 0)
 }
 
-/// A Go time.Time as JSON carries it: unix seconds plus nanoseconds, and
-/// the UTC offset it is written with. The default is Go's zero time
-/// (0001-01-01T00:00:00Z).
+/// A timestamp as the meta JSON carries it (see the module docs): unix
+/// seconds plus nanoseconds, and the UTC offset it is written with. The
+/// default is the unset time, 0001-01-01T00:00:00Z.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-struct GoTime {
+struct JsonTime {
     secs: i64,
     nanos: u32,
     off: i32, // seconds east of UTC; presentation only
 }
 
-const GO_ZERO_SECS: i64 = -62_135_596_800;
+const ZERO_SECS: i64 = -62_135_596_800;
 
-impl Default for GoTime {
+impl Default for JsonTime {
     fn default() -> Self {
-        GoTime {
-            secs: GO_ZERO_SECS,
+        JsonTime {
+            secs: ZERO_SECS,
             nanos: 0,
             off: 0,
         }
     }
 }
 
-impl GoTime {
-    fn from_system(t: SystemTime) -> GoTime {
+impl JsonTime {
+    fn from_system(t: SystemTime) -> JsonTime {
         match t.duration_since(UNIX_EPOCH) {
-            Ok(d) => GoTime {
+            Ok(d) => JsonTime {
                 secs: d.as_secs() as i64,
                 nanos: d.subsec_nanos(),
                 off: 0,
@@ -649,7 +663,7 @@ impl GoTime {
                 } else {
                     (-s - 1, 1_000_000_000 - n)
                 };
-                GoTime {
+                JsonTime {
                     secs,
                     nanos,
                     off: 0,
@@ -658,14 +672,14 @@ impl GoTime {
         }
     }
 
-    /// The same instant in the local time zone (as Go's time.Now()).
-    fn local(self) -> GoTime {
+    /// The same instant, presented in the local time zone.
+    fn local(self) -> JsonTime {
         let off = crate::platform::local_time(self.secs).off;
-        GoTime { off, ..self }
+        JsonTime { off, ..self }
     }
 
     fn is_zero(self) -> bool {
-        (self.secs, self.nanos) == (GO_ZERO_SECS, 0)
+        (self.secs, self.nanos) == (ZERO_SECS, 0)
     }
 
     fn to_system(self) -> SystemTime {
@@ -677,7 +691,7 @@ impl GoTime {
         }
     }
 
-    /// RFC 3339 with trimmed nanoseconds, like Go's MarshalJSON.
+    /// RFC 3339 with nanoseconds (trailing zeros trimmed) and "Z" for UTC.
     fn format(self) -> String {
         let secs = self.secs + self.off as i64;
         let (y, mo, d) = civil_from_days(secs.div_euclid(86400));
@@ -704,7 +718,7 @@ impl GoTime {
     }
 
     /// Parses RFC 3339 ("2026-10-08T10:40:00.123456789+01:00").
-    fn parse(s: &str) -> Option<GoTime> {
+    fn parse(s: &str) -> Option<JsonTime> {
         let b = s.as_bytes();
         let num = |r: std::ops::Range<usize>| -> Option<i64> {
             let p = b.get(r)?;
@@ -762,7 +776,7 @@ impl GoTime {
             _ => return None,
         };
         let secs = days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + se - off;
-        Some(GoTime {
+        Some(JsonTime {
             secs,
             nanos,
             off: off as i32,
@@ -779,18 +793,18 @@ impl GoTime {
     }
 }
 
-impl Serialize for GoTime {
+impl Serialize for JsonTime {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         s.serialize_str(&self.format())
     }
 }
 
-impl<'de> Deserialize<'de> for GoTime {
+impl<'de> Deserialize<'de> for JsonTime {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        // null leaves the zero time, as in Go.
+        // null leaves the time unset.
         match Option::<String>::deserialize(d)? {
-            None => Ok(GoTime::default()),
-            Some(s) => GoTime::parse(&s)
+            None => Ok(JsonTime::default()),
+            Some(s) => JsonTime::parse(&s)
                 .ok_or_else(|| serde::de::Error::custom(format!("parsing time {s:?}"))),
         }
     }
@@ -914,7 +928,7 @@ mod tests {
     }
 
     #[test]
-    fn read_uvarint_matches_go() {
+    fn varint_encoding() {
         for v in [0, 1, 127, 128, 300, 1 << 35, u64::MAX] {
             assert_eq!(read_uvarint(&mut body(&put_uvarint(v))), Ok(v));
         }
@@ -923,7 +937,7 @@ mod tests {
             read_uvarint(&mut body(&[0xff; 11])).is_err(),
             "overflow not detected"
         );
-        // Zig-zag as Go's PutVarint.
+        // Zig-zag.
         for (v, enc) in [(0i64, 0u64), (-1, 1), (1, 2), (-2, 3), (i64::MIN, u64::MAX)] {
             assert_eq!(((v << 1) ^ (v >> 63)) as u64, enc);
             assert_eq!(body(&put_uvarint(enc)).varint("v"), Ok(v));
@@ -931,16 +945,16 @@ mod tests {
     }
 
     #[test]
-    fn go_time_json() {
-        let t = GoTime::parse("2026-10-08T10:40:00.123456789+01:00").unwrap();
+    fn json_time() {
+        let t = JsonTime::parse("2026-10-08T10:40:00.123456789+01:00").unwrap();
         assert_eq!((t.secs, t.nanos, t.off), (1_791_452_400, 123_456_789, 3600));
         assert_eq!(t.format(), "2026-10-08T10:40:00.123456789+01:00");
         assert_eq!(
-            GoTime { off: 0, ..t }.format(),
+            JsonTime { off: 0, ..t }.format(),
             "2026-10-08T09:40:00.123456789Z"
         );
         assert_eq!(
-            GoTime {
+            JsonTime {
                 off: -5 * 3600 - 1800,
                 ..t
             }
@@ -948,17 +962,17 @@ mod tests {
             "2026-10-08T04:10:00.123456789-05:30"
         );
         assert_eq!(
-            GoTime::parse("2026-10-08T09:40:00.1Z").unwrap().format(),
+            JsonTime::parse("2026-10-08T09:40:00.1Z").unwrap().format(),
             "2026-10-08T09:40:00.1Z"
         );
         assert_eq!(
-            GoTime::parse("0001-01-01T00:00:00Z"),
-            Some(GoTime::default())
+            JsonTime::parse("0001-01-01T00:00:00Z"),
+            Some(JsonTime::default())
         );
-        assert_eq!(GoTime::default().format(), "0001-01-01T00:00:00Z");
+        assert_eq!(JsonTime::default().format(), "0001-01-01T00:00:00Z");
         assert_eq!(
-            GoTime::from_system(GoTime::default().to_system()),
-            GoTime::default()
+            JsonTime::from_system(JsonTime::default().to_system()),
+            JsonTime::default()
         );
         for bad in [
             "",
@@ -967,17 +981,17 @@ mod tests {
             "2026-10-08T00:00:00",
             "2026-10-08T00:00:00.Z",
         ] {
-            assert_eq!(GoTime::parse(bad), None, "{bad}");
+            assert_eq!(JsonTime::parse(bad), None, "{bad}");
         }
     }
 
-    /// A tiny tree saved by the Go binary
+    /// A snapshot written by mapsize 1.2.0 of a tiny tree
     /// (tree/{a/x.iso 10000 B, a/b/note.txt, c/y.log 3000 B, c/link -> ../a}).
     #[test]
-    fn loads_go_snapshot() {
+    fn loads_1_2_snapshot() {
         let t = load_file(Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/src/snapshot/testdata/go.msz"
+            "/src/snapshot/testdata/v1.2.0.msz"
         )))
         .unwrap();
         let r = t.node(0);
@@ -997,7 +1011,7 @@ mod tests {
         assert_eq!(t.node(iso).size, 10000);
         assert_eq!(t.ext_name(t.node(iso)), "iso");
         assert!(t.path_string(iso).ends_with("/tree/a/x.iso"));
-        // And it survives a Rust round trip unchanged.
+        // And it survives a save/load round trip unchanged.
         let again = load(&saved(&t)[..]).unwrap();
         assert_eq!(
             (again.node(0).tot_size, again.len(), again.stats.start),
