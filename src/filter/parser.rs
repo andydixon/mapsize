@@ -321,13 +321,13 @@ pub(super) fn name_match(v: &str) -> Expr {
 
 /// Reports whether pattern is a well-formed glob (see
 /// `platform::glob_match`): every `[` class is closed and non-empty, ranges
-/// have both ends, and no escape is dangling.
+/// have both ends, and (on Unix, where `\` escapes) no escape is dangling.
 fn glob_ok(p: &[u8]) -> bool {
     // One possibly escaped character of a range; None if malformed.
     let esc = |mut i: usize| -> Option<usize> {
         match p.get(i)? {
             b'-' | b']' => return None,
-            b'\\' => {
+            b'\\' if cfg!(unix) => {
                 i += 1;
                 p.get(i)?;
             }
@@ -338,7 +338,7 @@ fn glob_ok(p: &[u8]) -> bool {
     let mut i = 0;
     while i < p.len() {
         match p[i] {
-            b'\\' => {
+            b'\\' if cfg!(unix) => {
                 if i + 1 >= p.len() {
                     return false;
                 }
