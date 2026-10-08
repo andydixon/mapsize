@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Rewritten in Rust. Flags, keys, views, themes, the configuration file and
+  the snapshot format are unchanged: snapshots from earlier releases open as
+  before, and older releases open new ones. Measured against 1.2.0 on the
+  same machine, scans are about 1.3× faster with a third less memory, cold
+  treemap frames about 3× faster, and filters up to 1.8× faster (see
+  PERFORMANCE.md).
+- Release builds: Linux (x86-64, ARM64, 32-bit x86, ARMv7, RISC-V 64),
+  macOS (Intel, Apple silicon), Windows (x86-64, ARM64), FreeBSD and NetBSD
+  (x86-64), built and published by CI. OpenBSD and FreeBSD/ARM64 builds are
+  no longer produced.
+- `--log` and `--log-level` are accepted but no log is written yet;
+  `--cpuprofile` and `--memprofile` are removed.
+- Install from source with `cargo install`; the Homebrew formula builds with
+  Rust.
+
+### Fixed
+- A search containing certain non-ASCII text (for example `voilà`) no longer
+  hangs.
+
 ## 1.2.0 — 2026-10-03
 
 ### Changed

@@ -1,17 +1,18 @@
 # mapsize
 
 An interactive, full-terminal disk usage analyser built around a live,
-navigable treemap. Think WinDirStat + ncdu + WizTree, in one Go binary that
-runs over SSH.
+navigable treemap. Think WinDirStat + ncdu + WizTree, in one Rust binary
+that runs over SSH.
 
-> `mapsize` is a working name; branding lives in `internal/brand`.
+> `mapsize` is a working name; branding lives in `src/brand.rs`.
 
 ## Status
 
-Version 1.0. See [CHANGELOG.md](CHANGELOG.md), [ROADMAP.md](ROADMAP.md) for
+Version 1.2. See [CHANGELOG.md](CHANGELOG.md), [ROADMAP.md](ROADMAP.md) for
 what comes next, and [PERFORMANCE.md](PERFORMANCE.md) for measured numbers.
-Tested on Linux; macOS and Windows builds are produced but trash and
-file-manager integration have not yet been tested there.
+Releases cover Linux, macOS, Windows, FreeBSD and NetBSD. It is tested on
+Linux; CI also runs the test suite on macOS and Windows, but trash and
+file-manager integration have not yet been tried by hand there.
 
 ## What it does
 
@@ -70,9 +71,9 @@ the map or scrolls lists. Everything works without a mouse (`--no-mouse`).
 ## Install
 
 ```sh
-go install github.com/andydixon/mapsize/cmd/mapsize@v1.0.0
-# or
-make build   # → bin/mapsize
+cargo install --locked --git https://github.com/andydixon/mapsize
+# or, from a checkout
+make build          # → target/release/mapsize
 sudo make install   # binary + man page under /usr/local (PREFIX=… to change)
 
 # Homebrew (macOS and Linux)
