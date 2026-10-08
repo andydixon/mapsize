@@ -41,7 +41,6 @@ for bin in "$bins"/mapsize-*; do
 		arch: $nfarch
 		platform: linux
 		version: $version
-		release: 1
 		maintainer: Andy Dixon <andy@dixon.cx>
 		description: Interactive full-terminal disk usage analyser with a live treemap.
 		homepage: https://github.com/andydixon/mapsize
