@@ -4,6 +4,7 @@ pub mod brand;
 pub mod cancel;
 pub mod config;
 pub mod export;
+pub mod filter;
 pub mod inventory;
 pub mod platform;
 pub mod scan;
