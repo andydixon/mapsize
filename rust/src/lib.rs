@@ -1,5 +1,6 @@
 //! mapsize: interactive terminal disk usage analyser (Rust port).
 
+pub mod app;
 pub mod brand;
 pub mod cancel;
 pub mod config;

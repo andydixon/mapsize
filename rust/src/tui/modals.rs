@@ -7,7 +7,7 @@ use super::mapview::Group;
 use super::modal::{kv, styled, txt, wrap, Line, Modal, Span};
 use super::model::{Cmd, Model};
 use super::search::LineEditor;
-use super::{fmt_time, pad_left, pad_right, san, si_units, trunc, tw};
+use super::{fmt_time, pad_left, pad_right, san, trunc, tw};
 use crate::export;
 use crate::filter;
 use crate::inventory::{NodeId, Tree, FLAG_ALLOC_UNKNOWN, FLAG_HARDLINK_DUP, FLAG_INCOMPLETE, FLAG_LOOP, FLAG_SCANNED, FLAG_SKIPPED_FS, FLAG_SPARSE, FLAG_VIRTUAL_FS, NO_NODE};
@@ -321,7 +321,7 @@ impl Modal for HelpModal {
         row(&mut out, "Ctrl+C", "cancel scan; press again to quit");
         row(&mut out, "q", "quit");
         out.push(txt(""));
-        let units = if si_units() { "SI (kB = 1000 bytes)" } else { "IEC (KiB = 1024 bytes)" };
+        let units = if crate::textutil::si() { "SI (kB = 1000 bytes)" } else { "IEC (KiB = 1024 bytes)" };
         out.push(styled(format!("Sizes: {} · units: {units}", m.size_mode.name()), muted));
         out
     }

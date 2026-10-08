@@ -55,11 +55,6 @@ pub(crate) fn san(b: &[u8]) -> String {
     textutil::sanitize_bytes(b)
 }
 
-/// Whether decimal (SI) units are selected. textutil keeps the switch
-/// private, so it is inferred from the formatting.
-pub(crate) fn si_units() -> bool {
-    textutil::size(1000).ends_with("kB")
-}
 
 fn local_tm(unix_nanos: i64) -> libc::tm {
     let secs = unix_nanos.div_euclid(1_000_000_000) as libc::time_t;

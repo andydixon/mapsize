@@ -11,13 +11,13 @@ use std::hint::black_box;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-fn bench(name: &str, mut f: impl FnMut(u64)) {
-    f(0);
+fn bench<R>(name: &str, mut f: impl FnMut(u64) -> R) {
+    black_box(f(0));
     let budget = Duration::from_secs(2);
     let start = Instant::now();
     let mut n = 0u64;
     while start.elapsed() < budget {
-        f(n);
+        black_box(f(n));
         n += 1;
     }
     let per = start.elapsed() / n as u32;
