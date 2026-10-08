@@ -92,7 +92,7 @@ impl Model {
                 .map(|(i, &v)| (Category::from_u8(i as u8), v))
                 .collect();
             let total: i64 = cats.iter().map(|c| c.1).sum();
-            cats.sort_by(|a, b| b.1.cmp(&a.1));
+            cats.sort_by_key(|c| std::cmp::Reverse(c.1));
             for &(c, v) in &cats {
                 if y >= end - 8 {
                     break;

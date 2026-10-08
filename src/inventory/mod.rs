@@ -492,7 +492,7 @@ mod tests {
         assert_eq!(top.len(), 3);
         assert_eq!(tr.node(top[0]).size, 99);
         assert_eq!(tr.node(top[2]).size, 97);
-        assert_eq!(tr.path_string(top[0]), "/r/d/f");
+        assert_eq!(tr.path_string(top[0]).replace('\\', "/"), "/r/d/f");
     }
 
     #[test]

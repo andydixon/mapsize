@@ -590,6 +590,8 @@ fn nesting_reaches_deep_media() {
 
 // Headless, o shows the selected folder in the map instead of launching a
 // file manager.
+// macOS and Windows always have a file manager, so are never headless.
+#[cfg(not(any(target_os = "macos", windows)))]
 #[test]
 fn reveal_headless_zooms_map() {
     std::env::set_var("DISPLAY", "");
