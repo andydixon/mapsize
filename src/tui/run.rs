@@ -34,7 +34,7 @@ const RESTORE: &str =
 fn write_raw(s: &str) {
     let mut b = s.as_bytes();
     while !b.is_empty() {
-        let n = unsafe { libc::write(1, b.as_ptr().cast(), b.len()) };
+        let n = unsafe { libc::write(1, b.as_ptr().cast(), b.len().min(1 << 30) as _) };
         if n <= 0 {
             return;
         }

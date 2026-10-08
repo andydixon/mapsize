@@ -98,8 +98,8 @@ impl<'a> Ctx<'a> {
             .filter(|p| !p.is_empty())
         {
             self.path.push_str(pp);
-            if !pp.ends_with('/') {
-                self.path.push('/');
+            if !pp.ends_with(platform::SEP as char) {
+                self.path.push(platform::SEP as char);
             }
             push_lower(&mut self.path, &self.node.name);
             return;

@@ -1,6 +1,7 @@
 use super::eval::{Expr, NumOp};
 use super::lexer::{lex, TokKind, Token};
 use crate::inventory::{self as inv, Flags};
+use crate::platform::days_from_civil;
 use regex::Regex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -561,24 +562,6 @@ fn days_in(y: i64, m: i64) -> i64 {
     }
 }
 
-/// Days since 1970-01-01 of a proleptic Gregorian date.
-fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
-    let y = if m <= 2 { y - 1 } else { y };
-    let era = y.div_euclid(400);
-    let yoe = y - era * 400;
-    let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + d - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    era * 146097 + doe - 719468
-}
-
 fn local_nanos(y: i64, mo: i64, d: i64, h: i64, mi: i64) -> Option<i64> {
-    let mut tm: libc::tm = unsafe { std::mem::zeroed() };
-    tm.tm_year = (y - 1900) as i32;
-    tm.tm_mon = (mo - 1) as i32;
-    tm.tm_mday = d as i32;
-    tm.tm_hour = h as i32;
-    tm.tm_min = mi as i32;
-    tm.tm_isdst = -1;
-    let t = unsafe { libc::mktime(&mut tm) };
-    (t != -1).then(|| t as i64 * 1_000_000_000)
+    Some(crate::platform::local_to_unix(y, mo, d, h, mi) * 1_000_000_000)
 }

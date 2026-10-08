@@ -484,7 +484,8 @@ impl Controller {
         self.excludes.iter().any(|(is_path, p)| {
             if *is_path {
                 path == p.as_slice()
-                    || path.starts_with(p) && path.get(p.len()) == Some(&b'/')
+                    || path.starts_with(p)
+                        && path.get(p.len()).is_some_and(|&b| platform::is_sep(b))
                     || platform::glob_match(p, path)
             } else {
                 platform::glob_match(p, name)
@@ -662,7 +663,6 @@ fn err_msg(e: &io::Error) -> String {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use std::os::unix::ffi::OsStrExt;
     use std::path::{Path, PathBuf};
 
     pub struct TempDir(pub PathBuf);
@@ -716,7 +716,7 @@ pub(crate) mod tests {
     }
 
     pub fn run_scan(root: &Path, o: Options) -> Tree {
-        let s = start(root.as_os_str().as_bytes(), o, Cancel::new()).unwrap();
+        let s = start(root.as_os_str().as_encoded_bytes(), o, Cancel::new()).unwrap();
         s.done()
             .recv_timeout(std::time::Duration::from_secs(60))
             .expect_err("scan did not finish (deadlock?)");
@@ -797,7 +797,7 @@ pub(crate) mod tests {
         mk_tree(&root.0, 8, 3, 2);
         let c = Cancel::new();
         let s = start(
-            root.0.as_os_str().as_bytes(),
+            root.0.as_os_str().as_encoded_bytes(),
             Options {
                 workers: 2,
                 job_buffer: 1,
@@ -816,6 +816,7 @@ pub(crate) mod tests {
         assert!(t.stats.cancelled && t.stats.incomplete());
     }
 
+    #[cfg(unix)]
     #[test]
     fn symlink_loops() {
         let root = TempDir::new("loop");
@@ -845,6 +846,7 @@ pub(crate) mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn hardlinks_counted_once() {
         let root = TempDir::new("hl");
@@ -863,6 +865,7 @@ pub(crate) mod tests {
         assert!(t.node(0).tot_size < 200000);
     }
 
+    #[cfg(unix)]
     #[test]
     fn permission_errors_surface() {
         if unsafe { libc::geteuid() } == 0 {
@@ -873,7 +876,7 @@ pub(crate) mod tests {
         let locked = root.0.join("locked");
         std::fs::create_dir(&locked).unwrap();
         std::fs::write(locked.join("f"), b"x").unwrap();
-        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0)).unwrap();
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
         let t = run_scan(
             &root.0,
             Options {
@@ -907,8 +910,10 @@ pub(crate) mod tests {
         assert_eq!((t.stats.excluded, t.node(0).files), (2, 1));
     }
 
+    #[cfg(unix)]
     #[test]
     fn hostile_names_preserved() {
+        use std::os::unix::ffi::OsStrExt;
         let root = TempDir::new("names");
         let names: [&[u8]; 6] = [
             "日本語.txt".as_bytes(),

@@ -34,13 +34,13 @@ use crate::brand;
 use crate::inventory::{
     Category, ErrKind, ErrorRecord, Kind, NodeId, Tree, MAX_ERROR_RECORDS, NUM_CATEGORIES,
 };
+use crate::platform::{civil_from_days, days_from_civil};
 use crossbeam_channel::Receiver;
 use flate2::{bufread::GzDecoder, write::GzEncoder, Compression};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Read, Write};
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -178,7 +178,7 @@ pub fn save(out: &mut dyn Write, t: &Tree) -> io::Result<()> {
         one_file_system: st.one_file_system,
         follow: st.follow.clone(),
         workers: st.workers as i64,
-        host: hostname(),
+        host: crate::platform::hostname(),
         generator: format!("{} {}", brand::NAME, brand::VERSION),
     };
     let mb = serde_json::to_vec(&m)?;
@@ -245,12 +245,7 @@ fn create_temp(dir: &Path) -> io::Result<(PathBuf, File)> {
             ".mapsize-{}.tmp",
             seed.wrapping_add(i.wrapping_mul(7919))
         ));
-        match OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&p)
-        {
+        match crate::platform::create_private(&p) {
             Ok(f) => return Ok((p, f)),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(e) => return Err(e),
@@ -260,15 +255,6 @@ fn create_temp(dir: &Path) -> io::Result<(PathBuf, File)> {
         io::ErrorKind::AlreadyExists,
         "snapshot: cannot create temporary file",
     ))
-}
-
-fn hostname() -> String {
-    let mut b = [0u8; 256];
-    if unsafe { libc::gethostname(b.as_mut_ptr() as *mut libc::c_char, b.len()) } != 0 {
-        return String::new();
-    }
-    let n = b.iter().position(|&c| c == 0).unwrap_or(b.len());
-    String::from_utf8_lossy(&b[..n]).into_owned()
 }
 
 /// The decompressed body, fed in chunks by the decompressing thread.
@@ -674,7 +660,7 @@ impl GoTime {
 
     /// The same instant in the local time zone (as Go's time.Now()).
     fn local(self) -> GoTime {
-        let off = localtime(self.secs).map_or(0, |tm| tm.tm_gmtoff as i32);
+        let off = crate::platform::local_time(self.secs).off;
         GoTime { off, ..self }
     }
 
@@ -785,24 +771,12 @@ impl GoTime {
 
     /// "2006-01-02 15:04" in local time.
     fn local_minutes(self) -> String {
-        let Some(tm) = localtime(self.secs) else {
-            return self.format();
-        };
+        let t = crate::platform::local_time(self.secs);
         format!(
             "{:04}-{:02}-{:02} {:02}:{:02}",
-            tm.tm_year as i64 + 1900,
-            tm.tm_mon + 1,
-            tm.tm_mday,
-            tm.tm_hour,
-            tm.tm_min
+            t.year, t.month, t.day, t.hour, t.min
         )
     }
-}
-
-fn localtime(secs: i64) -> Option<libc::tm> {
-    let t = secs as libc::time_t;
-    let mut tm: libc::tm = unsafe { std::mem::zeroed() };
-    (!unsafe { libc::localtime_r(&t, &mut tm) }.is_null()).then_some(tm)
 }
 
 impl Serialize for GoTime {
@@ -820,28 +794,6 @@ impl<'de> Deserialize<'de> for GoTime {
                 .ok_or_else(|| serde::de::Error::custom(format!("parsing time {s:?}"))),
         }
     }
-}
-
-/// Civil-from-days (Howard Hinnant).
-fn civil_from_days(days: i64) -> (i64, i64, i64) {
-    let z = days + 719468;
-    let era = z.div_euclid(146097);
-    let doe = z - era * 146097;
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    (yoe + era * 400 + (m <= 2) as i64, m, d)
-}
-
-fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
-    let y = if m <= 2 { y - 1 } else { y };
-    let era = y.div_euclid(400);
-    let yoe = y - era * 400;
-    let doy = (153 * ((m + 9) % 12) + 2) / 5 + d - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    era * 146097 + doe - 719468
 }
 
 #[cfg(test)]

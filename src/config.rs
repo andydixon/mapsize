@@ -44,14 +44,18 @@ impl Default for Settings {
     }
 }
 
-/// The config file location.
+/// The config file location: `<dir>/mapsize/config.json` where dir is
+/// %AppData% on Windows, ~/Library/Application Support on macOS, and
+/// $XDG_CONFIG_HOME or ~/.config elsewhere.
 pub fn path() -> Option<PathBuf> {
     let env = |k: &str| {
         std::env::var_os(k)
             .filter(|v| !v.is_empty())
             .map(PathBuf::from)
     };
-    let dir = if cfg!(target_os = "macos") {
+    let dir = if cfg!(windows) {
+        env("AppData")?
+    } else if cfg!(target_os = "macos") {
         env("HOME")?.join("Library/Application Support")
     } else {
         env("XDG_CONFIG_HOME").or_else(|| env("HOME").map(|h| h.join(".config")))?

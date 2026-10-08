@@ -272,9 +272,9 @@ impl Model {
         // Drop leading segments until the rest fits; keep at least the last.
         let total = |from: usize| {
             let mut w = 0;
-            for i in from..segs.len() {
-                w += tw(&segs[i].1);
-                if i > from {
+            for (k, (_, s)) in segs[from..].iter().enumerate() {
+                w += tw(s);
+                if k > 0 {
                     w += tw(sep);
                 }
             }

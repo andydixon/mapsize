@@ -21,6 +21,7 @@ use crate::config::Settings;
 use crate::duplicate;
 use crate::filter::FilterResult;
 use crate::inventory::{NodeId, SizeMode, Tree};
+use crate::platform;
 use crate::scan::Scanner;
 use crate::snapshot;
 use crate::textutil;
@@ -612,17 +613,20 @@ impl Model {
         let root = t.path_bytes(0);
         let rel: &[u8] = if pz == root {
             b""
-        } else if let Some(r) = pz
-            .strip_prefix(root.as_slice())
-            .filter(|r| root.ends_with(b"/") || r.starts_with(b"/"))
-        {
+        } else if let Some(r) = pz.strip_prefix(root.as_slice()).filter(|r| {
+            root.last().is_some_and(|&b| platform::is_sep(b))
+                || r.first().is_some_and(|&b| platform::is_sep(b))
+        }) {
             r
         } else {
             self.pending_zoom = None;
             return;
         };
         let mut id = 0;
-        for part in rel.split(|&b| b == b'/').filter(|p| !p.is_empty()) {
+        for part in rel
+            .split(|&b| platform::is_sep(b))
+            .filter(|p| !p.is_empty())
+        {
             match t.children(id).find(|(_, n)| &*n.name == part) {
                 Some((c, _)) => id = c,
                 None => return, // not discovered yet
