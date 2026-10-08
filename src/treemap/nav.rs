@@ -33,10 +33,38 @@ pub fn neighbour(blocks: &[Block], sel: i64, d: Direction) -> Option<i64> {
         }
         let c = b.rect;
         let (ok, gap, lo, hi, clo, chi) = match d {
-            Direction::Right => (c.x >= s.x + s.w, c.x - (s.x + s.w), s.y, s.y + s.h, c.y, c.y + c.h),
-            Direction::Left => (c.x + c.w <= s.x, s.x - (c.x + c.w), s.y, s.y + s.h, c.y, c.y + c.h),
-            Direction::Down => (c.y >= s.y + s.h, c.y - (s.y + s.h), s.x, s.x + s.w, c.x, c.x + c.w),
-            Direction::Up => (c.y + c.h <= s.y, s.y - (c.y + c.h), s.x, s.x + s.w, c.x, c.x + c.w),
+            Direction::Right => (
+                c.x >= s.x + s.w,
+                c.x - (s.x + s.w),
+                s.y,
+                s.y + s.h,
+                c.y,
+                c.y + c.h,
+            ),
+            Direction::Left => (
+                c.x + c.w <= s.x,
+                s.x - (c.x + c.w),
+                s.y,
+                s.y + s.h,
+                c.y,
+                c.y + c.h,
+            ),
+            Direction::Down => (
+                c.y >= s.y + s.h,
+                c.y - (s.y + s.h),
+                s.x,
+                s.x + s.w,
+                c.x,
+                c.x + c.w,
+            ),
+            Direction::Up => (
+                c.y + c.h <= s.y,
+                s.y - (c.y + c.h),
+                s.x,
+                s.x + s.w,
+                c.x,
+                c.x + c.w,
+            ),
         };
         if !ok {
             continue;
@@ -68,7 +96,10 @@ mod tests {
     use super::Direction::*;
 
     fn blk(id: i64, x: i32, y: i32, w: i32, h: i32) -> Block {
-        Block { id, rect: r(x, y, w, h) }
+        Block {
+            id,
+            rect: r(x, y, w, h),
+        }
     }
 
     // Layout:
@@ -86,9 +117,18 @@ mod tests {
         let d = blk(4, 4, 4, 12, 4);
         let bs = [d, c, b, a]; // order must not matter
         let cases = [
-            (1, Right, Some(2)), (2, Left, Some(1)), (1, Down, Some(3)), (2, Down, Some(4)),
-            (3, Right, Some(4)), (4, Left, Some(3)), (3, Up, Some(1)), (4, Up, Some(2)),
-            (1, Left, None), (1, Up, None), (4, Right, None), (4, Down, None),
+            (1, Right, Some(2)),
+            (2, Left, Some(1)),
+            (1, Down, Some(3)),
+            (2, Down, Some(4)),
+            (3, Right, Some(4)),
+            (4, Left, Some(3)),
+            (3, Up, Some(1)),
+            (4, Up, Some(2)),
+            (1, Left, None),
+            (1, Up, None),
+            (4, Right, None),
+            (4, Down, None),
         ];
         for (from, dir, want) in cases {
             assert_eq!(neighbour(&bs, from, dir), want, "from {from} dir {dir:?}");
@@ -109,7 +149,11 @@ mod tests {
         let r1 = blk(11, 10, 0, 10, 3);
         let r2 = blk(12, 10, 3, 10, 3);
         let r3 = blk(13, 10, 6, 10, 3);
-        assert_eq!(neighbour(&[r3, r1, r2, t], 10, Right), Some(12), "centre preference");
+        assert_eq!(
+            neighbour(&[r3, r1, r2, t], 10, Right),
+            Some(12),
+            "centre preference"
+        );
         assert_eq!(neighbour(&[r3, r1, r2, t], 13, Left), Some(10), "back left");
     }
 
@@ -122,7 +166,9 @@ mod tests {
             let bl = squarify(&items, r(0, 0, 120, 40));
             for s in &bl {
                 for d in [Left, Right, Up, Down] {
-                    let Some(id) = neighbour(&bl, s.id, d) else { continue };
+                    let Some(id) = neighbour(&bl, s.id, d) else {
+                        continue;
+                    };
                     let c = bl.iter().find(|b| b.id == id).unwrap().rect;
                     let s = s.rect;
                     // In a partition, if any block touches the edge in direction d
@@ -133,7 +179,10 @@ mod tests {
                         Down => c.y == s.y + s.h,
                         Up => c.y + c.h == s.y,
                     };
-                    assert!(touch, "iter {iter}: from {s:?} dir {d:?} chose non-adjacent {c:?}");
+                    assert!(
+                        touch,
+                        "iter {iter}: from {s:?} dir {d:?} chose non-adjacent {c:?}"
+                    );
                 }
             }
         }

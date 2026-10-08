@@ -2,7 +2,7 @@
 
 use super::canvas::{Canvas, Style, BOLD};
 use super::model::{Cmd, Key, Model, Msg};
-use super::{tw, trunc};
+use super::{trunc, tw};
 use crate::cancel::Cancel;
 use crate::filter::{self, FilterResult, Query};
 use crate::inventory::Tree;
@@ -74,7 +74,11 @@ impl LineEditor {
                 if k.text.is_empty() || k.ctrl_alt {
                     return (false, false);
                 }
-                let rs: Vec<char> = k.text.chars().filter(|&r| r >= ' ' && r != '\x7f').collect();
+                let rs: Vec<char> = k
+                    .text
+                    .chars()
+                    .filter(|&r| r >= ' ' && r != '\x7f')
+                    .collect();
                 if rs.is_empty() || self.buf.len() + rs.len() > 1024 {
                     return (false, true);
                 }
@@ -174,7 +178,9 @@ impl Model {
     /// Evaluates the current query in the background. The tree is
     /// read-locked by the worker; stale results are discarded by generation.
     pub fn apply_filter(&mut self) -> Cmd {
-        let Some(q) = self.search.query.clone() else { return Cmd::None };
+        let Some(q) = self.search.query.clone() else {
+            return Cmd::None;
+        };
         if let Some(c) = self.search.cancel.take() {
             c.cancel();
         }
@@ -235,7 +241,11 @@ impl Model {
         } else if s.busy {
             "filtering…".into()
         } else if let Some(res) = &s.result {
-            format!("{} matches · {}", textutil::count(res.count), textutil::size(res.total))
+            format!(
+                "{} matches · {}",
+                textutil::count(res.count),
+                textutil::size(res.total)
+            )
         } else if s.ed.buf.is_empty() {
             "name, *.iso, size > 1GB, ext IN (iso,vmdk), age > 365d … Enter keep · Esc clear".into()
         } else {
@@ -245,14 +255,28 @@ impl Model {
         let avail = r.w - (x - r.x) - sw - 3;
         // Scroll the text so the cursor stays visible.
         let text = &s.ed.buf;
-        let start = if s.ed.cur as i32 > avail - 1 { (s.ed.cur as i32 - avail + 1) as usize } else { 0 };
+        let start = if s.ed.cur as i32 > avail - 1 {
+            (s.ed.cur as i32 - avail + 1) as usize
+        } else {
+            0
+        };
         let end = text.len().min(start + avail.max(0) as usize).max(start);
         let vis: String = text[start..end].iter().collect();
         cv.text(x, r.y, &textutil::sanitize(&vis), avail, st);
         let before: String = text[start..s.ed.cur].iter().collect();
         let cx = x + tw(&textutil::sanitize(&before));
-        let under = if s.ed.cur < text.len() { textutil::sanitize(&text[s.ed.cur].to_string()) } else { " ".into() };
-        cv.text(cx, r.y, &under, 2, Style::new(t.panel_bg, t.fg).with(self.mono_rev()));
+        let under = if s.ed.cur < text.len() {
+            textutil::sanitize(&text[s.ed.cur].to_string())
+        } else {
+            " ".into()
+        };
+        cv.text(
+            cx,
+            r.y,
+            &under,
+            2,
+            Style::new(t.panel_bg, t.fg).with(self.mono_rev()),
+        );
         cv.text_right(r.x, r.y, r.w - 1, &trunc(&status, sw), status_st);
     }
 
@@ -260,9 +284,21 @@ impl Model {
         let t = &self.theme;
         let s = &self.search;
         let mut x = r.x + 1;
-        x += cv.text(x, r.y, " FILTER ", 8, Style::new(t.text_on(t.warn), t.warn).with(BOLD | self.mono_rev()));
+        x += cv.text(
+            x,
+            r.y,
+            " FILTER ",
+            8,
+            Style::new(t.text_on(t.warn), t.warn).with(BOLD | self.mono_rev()),
+        );
         let q = s.query.as_ref().map(|q| q.to_string()).unwrap_or_default();
-        x += cv.text(x + 1, r.y, &textutil::sanitize(&q), r.w / 2, Style::new(t.fg, t.panel_bg).with(BOLD)) + 1;
+        x += cv.text(
+            x + 1,
+            r.y,
+            &textutil::sanitize(&q),
+            r.w / 2,
+            Style::new(t.fg, t.panel_bg).with(BOLD),
+        ) + 1;
         let mut info = "filtering…".to_string();
         if let (Some(res), false) = (&s.result, s.busy) {
             info = format!(
@@ -272,6 +308,12 @@ impl Model {
                 textutil::size(tr.node(0).total(self.size_mode))
             );
         }
-        cv.text(x + 2, r.y, &info, r.x + r.w - x - 3, Style::new(t.muted, t.panel_bg));
+        cv.text(
+            x + 2,
+            r.y,
+            &info,
+            r.x + r.w - x - 3,
+            Style::new(t.muted, t.panel_bg),
+        );
     }
 }

@@ -32,7 +32,16 @@ fn push_lower(buf: &mut String, name: &[u8]) {
 
 impl<'a> Ctx<'a> {
     pub fn new(tree: &'a Tree, id: NodeId, now: i64) -> Ctx<'a> {
-        Ctx { tree, id, node: tree.node(id), now, path: String::new(), has_path: false, name: String::new(), dir_paths: None }
+        Ctx {
+            tree,
+            id,
+            node: tree.node(id),
+            now,
+            path: String::new(),
+            has_path: false,
+            name: String::new(),
+            dir_paths: None,
+        }
     }
 
     /// Moves the context to another node.
@@ -82,7 +91,12 @@ impl<'a> Ctx<'a> {
     pub(super) fn fill_path(&mut self) {
         self.has_path = true;
         self.path.clear();
-        if let Some(pp) = self.dir_paths.as_ref().and_then(|dp| dp.get(self.node.parent as usize)).filter(|p| !p.is_empty()) {
+        if let Some(pp) = self
+            .dir_paths
+            .as_ref()
+            .and_then(|dp| dp.get(self.node.parent as usize))
+            .filter(|p| !p.is_empty())
+        {
             self.path.push_str(pp);
             if !pp.ends_with('/') {
                 self.path.push('/');
@@ -90,7 +104,8 @@ impl<'a> Ctx<'a> {
             push_lower(&mut self.path, &self.node.name);
             return;
         }
-        self.path.push_str(&self.tree.path_string(self.id).to_lowercase());
+        self.path
+            .push_str(&self.tree.path_string(self.id).to_lowercase());
     }
 }
 

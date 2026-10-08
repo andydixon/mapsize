@@ -72,8 +72,8 @@ pub struct Node {
     /// Single path component (raw bytes); the root holds the full root path.
     pub name: Box<[u8]>,
 
-    pub size: i64, // own logical bytes
-    pub alloc: i64, // own allocated bytes
+    pub size: i64,     // own logical bytes
+    pub alloc: i64,    // own allocated bytes
     pub tot_size: i64, // aggregates (hard-link duplicates contribute 0)
     pub tot_alloc: i64,
     pub mtime: i64, // unix nanoseconds
@@ -81,7 +81,7 @@ pub struct Node {
     pub files: u32, // recursive counts beneath (dirs excludes self)
     pub dirs: u32,
     pub errors: u32, // recursive error count beneath and including self
-    pub mode: u32,  // Go fs.FileMode bit layout (see platform::mode)
+    pub mode: u32,   // Go fs.FileMode bit layout (see platform::mode)
     pub uid: u32,
     pub gid: u32,
     pub nlink: u32,
@@ -129,7 +129,10 @@ struct Chunked<T> {
 
 impl<T> Chunked<T> {
     fn new() -> Self {
-        Chunked { c: Vec::new(), n: 0 }
+        Chunked {
+            c: Vec::new(),
+            n: 0,
+        }
     }
     fn add(&mut self, v: T) -> u32 {
         if self.n & (CHUNK_SIZE - 1) == 0 && self.n >> CHUNK_BITS == self.c.len() {
@@ -202,9 +205,22 @@ impl Tree {
             next_sibling: NO_NODE,
             dir: 0,
             name: name.into(),
-            size: 0, alloc: 0, tot_size: 0, tot_alloc: 0, mtime: 0,
-            files: 0, dirs: 0, errors: 0, mode: 0, uid: 0, gid: 0, nlink: 0,
-            ext: 0, flags: 0, kind, cat: Category::Other,
+            size: 0,
+            alloc: 0,
+            tot_size: 0,
+            tot_alloc: 0,
+            mtime: 0,
+            files: 0,
+            dirs: 0,
+            errors: 0,
+            mode: 0,
+            uid: 0,
+            gid: 0,
+            nlink: 0,
+            ext: 0,
+            flags: 0,
+            kind,
+            cat: Category::Other,
         };
         if kind == Kind::Dir {
             n.dir = self.dirs.add([0; NUM_CATEGORIES]);
@@ -274,7 +290,10 @@ impl Tree {
 
     /// Iterates the children of id (in reverse insertion order).
     pub fn children(&self, id: NodeId) -> Children<'_> {
-        Children { t: self, cur: self.node(id).first_child }
+        Children {
+            t: self,
+            cur: self.node(id).first_child,
+        }
     }
 
     pub fn child_count(&self, id: NodeId) -> usize {
@@ -408,9 +427,17 @@ struct Shallow {
 impl Node {
     fn clone_shallow(&self) -> Shallow {
         Shallow {
-            parent: self.parent, dir: self.dir, tot_size: self.tot_size, tot_alloc: self.tot_alloc,
-            alloc: self.alloc, files: self.files, dirs: self.dirs, errors: self.errors,
-            flags: self.flags, kind: self.kind, cat: self.cat,
+            parent: self.parent,
+            dir: self.dir,
+            tot_size: self.tot_size,
+            tot_alloc: self.tot_alloc,
+            alloc: self.alloc,
+            files: self.files,
+            dirs: self.dirs,
+            errors: self.errors,
+            flags: self.flags,
+            kind: self.kind,
+            cat: self.cat,
         }
     }
 }
@@ -471,7 +498,13 @@ mod tests {
 
     #[test]
     fn ext_and_category() {
-        for (input, want) in [("a.QCOW2", "qcow2"), (".bashrc", ""), ("noext", ""), ("x.tar.gz", "gz"), ("trail.", "")] {
+        for (input, want) in [
+            ("a.QCOW2", "qcow2"),
+            (".bashrc", ""),
+            ("noext", ""),
+            ("x.tar.gz", "gz"),
+            ("trail.", ""),
+        ] {
             assert_eq!(ext(input.as_bytes()), want, "{input}");
         }
         assert_eq!(category_for("qcow2", false, false), Category::DiskImage);

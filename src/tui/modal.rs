@@ -17,15 +17,30 @@ pub(crate) struct Span {
 pub(crate) type Line = Vec<Span>;
 
 pub(crate) fn txt(s: impl Into<String>) -> Line {
-    vec![Span { s: s.into(), st: None }]
+    vec![Span {
+        s: s.into(),
+        st: None,
+    }]
 }
 
 pub(crate) fn styled(s: impl Into<String>, st: Style) -> Line {
-    vec![Span { s: s.into(), st: Some(st) }]
+    vec![Span {
+        s: s.into(),
+        st: Some(st),
+    }]
 }
 
 pub(crate) fn kv(k: &str, v: impl Into<String>, kst: Style, vst: Style) -> Line {
-    vec![Span { s: pad_right(k, 18), st: Some(kst) }, Span { s: v.into(), st: Some(vst) }]
+    vec![
+        Span {
+            s: pad_right(k, 18),
+            st: Some(kst),
+        },
+        Span {
+            s: v.into(),
+            st: Some(vst),
+        },
+    ]
 }
 
 /// An overlay. Modals receive all keys while open; Esc always closes them
@@ -61,7 +76,12 @@ impl ModalFrame {
 
 impl Model {
     pub fn open_modal(&mut self, md: Box<dyn Modal>) {
-        self.modals.push(ModalFrame { md, scroll: 0, view_h: 0, content_n: 0 });
+        self.modals.push(ModalFrame {
+            md,
+            scroll: 0,
+            view_h: 0,
+            content_n: 0,
+        });
         self.dirty = true;
     }
 
@@ -119,16 +139,24 @@ impl Model {
     pub fn paint_modal(&mut self, tr: &Tree, cv: &mut Canvas) {
         let t = self.theme.clone();
         // Dim everything underneath.
-        cv.restyle(Rect { x: 0, y: 0, w: cv.w, h: cv.h }, |mut s| {
-            if t.mono {
-                s.attr |= FAINT;
-                return s;
-            }
-            s.fg = s.fg.mix(t.bg, 0.6);
-            s.bg = s.bg.mix(rgb(0, 0, 0), 0.45);
-            s.attr &= !BOLD;
-            s
-        });
+        cv.restyle(
+            Rect {
+                x: 0,
+                y: 0,
+                w: cv.w,
+                h: cv.h,
+            },
+            |mut s| {
+                if t.mono {
+                    s.attr |= FAINT;
+                    return s;
+                }
+                s.fg = s.fg.mix(t.bg, 0.6);
+                s.bg = s.bg.mix(rgb(0, 0, 0), 0.45);
+                s.attr &= !BOLD;
+                s
+            },
+        );
         let mut f = self.modals.pop().unwrap();
         let max_w = cv.w - 2;
         let w = (f.md.width() + 4).min(max_w).max(30.min(max_w));
@@ -139,10 +167,16 @@ impl Model {
         if !foot.is_empty() {
             chrome += 2;
         }
-        let h = (lines.len() as i32 + chrome).min(cv.h - 2).max((chrome + 1).min(cv.h));
+        let h = (lines.len() as i32 + chrome)
+            .min(cv.h - 2)
+            .max((chrome + 1).min(cv.h));
         let (x0, y0) = ((cv.w - w) / 2, (cv.h - h) / 2);
         let r = Rect { x: x0, y: y0, w, h };
-        let bg = if t.panel_bg.is_default() { t.bg } else { t.panel_bg };
+        let bg = if t.panel_bg.is_default() {
+            t.bg
+        } else {
+            t.panel_bg
+        };
         let base = Style::new(t.fg, bg);
         // Drop shadow.
         if !t.mono {
@@ -150,13 +184,35 @@ impl Model {
                 s.bg = rgb(0, 0, 0);
                 s
             };
-            cv.restyle(Rect { x: x0 + 1, y: y0 + h, w, h: 1 }, black);
-            cv.restyle(Rect { x: x0 + w, y: y0 + 1, w: 1, h }, black);
+            cv.restyle(
+                Rect {
+                    x: x0 + 1,
+                    y: y0 + h,
+                    w,
+                    h: 1,
+                },
+                black,
+            );
+            cv.restyle(
+                Rect {
+                    x: x0 + w,
+                    y: y0 + 1,
+                    w: 1,
+                    h,
+                },
+                black,
+            );
         }
         cv.fill(r, " ", base);
         let border = Style::new(t.accent, bg).with(BOLD);
         cv.draw_box(r, if t.ascii { BOX_ASCII } else { BOX_ROUND }, border);
-        cv.text(x0 + 2, y0 + 1, &f.md.title().to_uppercase(), inner, Style::new(t.accent, bg).with(BOLD));
+        cv.text(
+            x0 + 2,
+            y0 + 1,
+            &f.md.title().to_uppercase(),
+            inner,
+            Style::new(t.accent, bg).with(BOLD),
+        );
         let rule = if t.ascii { "-" } else { "─" };
         cv.hline(x0 + 1, y0 + 2, w - 2, rule, Style::new(t.faint, bg));
         f.view_h = h - chrome;
@@ -201,7 +257,10 @@ impl Model {
         }
         self.modals.push(f);
         self.hits.clear();
-        self.hits.push(Hit { r, act: HitAct::None });
+        self.hits.push(Hit {
+            r,
+            act: HitAct::None,
+        });
     }
 }
 

@@ -43,7 +43,8 @@ fn field_by_name(s: &str) -> Option<Field> {
 }
 
 /// Field names for help text.
-pub const FIELDS: &str = "name path ext type category size allocated age modified owner group files flag";
+pub const FIELDS: &str =
+    "name path ext type category size allocated age modified owner group files flag";
 
 /// A compiled filter.
 pub struct Query {
@@ -68,7 +69,12 @@ struct Parser {
 /// Compiles a query. now anchors relative ages (pass SystemTime::now()).
 pub fn parse(s: &str, now: SystemTime) -> Result<Query, String> {
     let toks = lex(s)?;
-    let mut p = Parser { toks, i: 0, uses_path: false, now };
+    let mut p = Parser {
+        toks,
+        i: 0,
+        uses_path: false,
+        now,
+    };
     if p.peek().kind == TokKind::Eof {
         return Err("empty query".into());
     }
@@ -77,7 +83,11 @@ pub fn parse(s: &str, now: SystemTime) -> Result<Query, String> {
     if t.kind != TokKind::Eof {
         return Err(format!("unexpected {:?} at {}", t.val, t.pos + 1));
     }
-    Ok(Query { src: s.to_string(), root, uses_path: p.uses_path })
+    Ok(Query {
+        src: s.to_string(),
+        root,
+        uses_path: p.uses_path,
+    })
 }
 
 fn is_kw(t: &Token, kw: &str) -> bool {
@@ -193,7 +203,10 @@ impl Parser {
         if f == Field::Path {
             self.uses_path = true;
         }
-        if matches!(f, Field::Size | Field::Allocated | Field::Age | Field::Modified | Field::Files) {
+        if matches!(
+            f,
+            Field::Size | Field::Allocated | Field::Age | Field::Modified | Field::Files
+        ) {
             let nop = match op.as_str() {
                 "=" | "in" => NumOp::Eq,
                 "!=" => NumOp::Ne,
@@ -203,7 +216,10 @@ impl Parser {
                 "<=" => NumOp::Le,
                 _ => return Err(format!("{op} cannot be used with numeric field")),
             };
-            let nums = vals.iter().map(|v| self.number(f, &v.val)).collect::<Result<Vec<_>, _>>()?;
+            let nums = vals
+                .iter()
+                .map(|v| self.number(f, &v.val))
+                .collect::<Result<Vec<_>, _>>()?;
             return Ok(Expr::Num(f, nop, nums));
         }
         // String-like fields.
@@ -244,7 +260,11 @@ impl Parser {
                 } else {
                     Expr::Eq(f, set)
                 };
-                Ok(if op == "!=" { Expr::Not(Box::new(n)) } else { n })
+                Ok(if op == "!=" {
+                    Expr::Not(Box::new(n))
+                } else {
+                    n
+                })
             }
             _ => Err(format!("operator {op} not valid for {}", op_tok.val)),
         }
@@ -256,7 +276,9 @@ impl Parser {
     fn number(&self, f: Field, s: &str) -> Result<i64, String> {
         match f {
             Field::Size | Field::Allocated => parse_size(s),
-            Field::Files => s.parse::<i64>().map_err(|e| format!("bad number {s:?}: {e}")),
+            Field::Files => s
+                .parse::<i64>()
+                .map_err(|e| format!("bad number {s:?}: {e}")),
             Field::Age => parse_age(s).map(nanos),
             Field::Modified => {
                 if let Some(t) = parse_date(s) {
@@ -266,7 +288,9 @@ impl Parser {
                     let now = self.now.duration_since(UNIX_EPOCH).map(nanos).unwrap_or(0);
                     return Ok(now.saturating_sub(nanos(d)));
                 }
-                Err(format!("bad date {s:?} (use YYYY-MM-DD or an age like 30d)"))
+                Err(format!(
+                    "bad date {s:?} (use YYYY-MM-DD or an age like 30d)"
+                ))
             }
             _ => Err("not numeric".into()),
         }
@@ -285,7 +309,11 @@ pub(super) fn name_match(v: &str) -> Expr {
     let lv = v.to_lowercase();
     if has_glob(v) {
         // Go's filepath.Match never matches a malformed pattern.
-        return if glob_ok(lv.as_bytes()) { Expr::Glob(Field::Name, lv) } else { Expr::False };
+        return if glob_ok(lv.as_bytes()) {
+            Expr::Glob(Field::Name, lv)
+        } else {
+            Expr::False
+        };
     }
     Expr::Contains(Field::Name, lv)
 }
@@ -365,7 +393,10 @@ fn flag_bit(s: &str) -> Option<Flags> {
 
 /// Splits a leading run of digits and dots from s.
 fn split_num(s: &str) -> (&str, &str) {
-    let i = s.bytes().position(|c| !(c.is_ascii_digit() || c == b'.')).unwrap_or(s.len());
+    let i = s
+        .bytes()
+        .position(|c| !(c.is_ascii_digit() || c == b'.'))
+        .unwrap_or(s.len());
     s.split_at(i)
 }
 
@@ -374,8 +405,14 @@ fn split_num(s: &str) -> (&str, &str) {
 /// (textutil::set_si).
 pub fn parse_size(s: &str) -> Result<i64, String> {
     let (num, unit_raw) = split_num(s);
-    let Ok(v) = num.parse::<f64>() else { return Err(format!("bad size {s:?}")) };
-    let bare: f64 = if crate::textutil::si() { 1000.0 } else { 1024.0 };
+    let Ok(v) = num.parse::<f64>() else {
+        return Err(format!("bad size {s:?}"));
+    };
+    let bare: f64 = if crate::textutil::si() {
+        1000.0
+    } else {
+        1024.0
+    };
     let m = match unit_raw.trim().to_lowercase().as_str() {
         "" | "b" => 1.0,
         "k" => bare,
@@ -405,7 +442,9 @@ pub fn parse_size(s: &str) -> Result<i64, String> {
 /// Parses durations like 90s, 30min, 12h, 7d, 2w, 6mo, 1y.
 pub fn parse_age(s: &str) -> Result<Duration, String> {
     let (num, unit) = split_num(s);
-    let Ok(v) = num.parse::<f64>() else { return Err(format!("bad age {s:?}")) };
+    let Ok(v) = num.parse::<f64>() else {
+        return Err(format!("bad age {s:?}"));
+    };
     const DAY: f64 = 86400.0;
     let secs = match unit.to_lowercase().as_str() {
         "s" | "sec" => 1.0,
@@ -415,7 +454,11 @@ pub fn parse_age(s: &str) -> Result<Duration, String> {
         "w" => 7.0 * DAY,
         "m" | "mo" => 30.0 * DAY,
         "y" => 365.0 * DAY,
-        _ => return Err(format!("unknown age unit {unit:?} (s, min, h, d, w, mo, y)")),
+        _ => {
+            return Err(format!(
+                "unknown age unit {unit:?} (s, min, h, d, w, mo, y)"
+            ))
+        }
     };
     // Saturates where Go's time.Duration would overflow.
     Ok(Duration::from_nanos((v * secs * 1e9) as u64))
@@ -428,10 +471,17 @@ fn parse_date(s: &str) -> Option<i64> {
     let b = s.as_bytes();
     let fixed = |i: usize, n: usize| -> Option<i64> {
         let d = b.get(i..i + n)?;
-        d.iter().all(u8::is_ascii_digit).then(|| d.iter().fold(0, |a, &c| a * 10 + (c - b'0') as i64))
+        d.iter()
+            .all(u8::is_ascii_digit)
+            .then(|| d.iter().fold(0, |a, &c| a * 10 + (c - b'0') as i64))
     };
     let (y, mo, d) = (fixed(0, 4)?, fixed(5, 2)?, fixed(8, 2)?);
-    if b.get(4) != Some(&b'-') || b.get(7) != Some(&b'-') || !(1..=12).contains(&mo) || d < 1 || d > days_in(y, mo) {
+    if b.get(4) != Some(&b'-')
+        || b.get(7) != Some(&b'-')
+        || !(1..=12).contains(&mo)
+        || d < 1
+        || d > days_in(y, mo)
+    {
         return None;
     }
     if b.len() == 10 {
@@ -473,7 +523,10 @@ fn parse_date(s: &str) -> Option<i64> {
             return None;
         }
         for k in 0..9 {
-            ns = ns * 10 + b.get(i + 1 + k).filter(|_| k < n).map_or(0, |c| (c - b'0') as i64);
+            ns = ns * 10
+                + b.get(i + 1 + k)
+                    .filter(|_| k < n)
+                    .map_or(0, |c| (c - b'0') as i64);
         }
         i += 1 + n;
     }

@@ -17,7 +17,11 @@ pub(super) struct Token {
 }
 
 fn tok(kind: TokKind, val: &str, pos: usize) -> Token {
-    Token { kind, val: val.to_string(), pos }
+    Token {
+        kind,
+        val: val.to_string(),
+        pos,
+    }
 }
 
 /// ASCII white space as Go's unicode.IsSpace sees it.
@@ -64,12 +68,18 @@ pub(super) fn lex(s: &str) -> Result<Vec<Token>, String> {
                 }
                 i += 1;
                 // Only ASCII bytes were dropped, so v is still valid UTF-8.
-                out.push(Token { kind: Str, val: String::from_utf8_lossy(&v).into_owned(), pos: start });
+                out.push(Token {
+                    kind: Str,
+                    val: String::from_utf8_lossy(&v).into_owned(),
+                    pos: start,
+                });
             }
             b'=' | b'!' | b'<' | b'>' | b'~' | b'&' | b'|' => {
                 let start = i;
                 let n = b.get(i + 1).copied();
-                let two = n == Some(b'=') || (c == b'&' && n == Some(b'&')) || (c == b'|' && n == Some(b'|'));
+                let two = n == Some(b'=')
+                    || (c == b'&' && n == Some(b'&'))
+                    || (c == b'|' && n == Some(b'|'));
                 let op = &s[i..i + 1 + two as usize];
                 i += op.len();
                 match op {

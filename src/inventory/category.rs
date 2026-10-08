@@ -23,14 +23,33 @@ pub enum Category {
 pub const NUM_CATEGORIES: usize = 12;
 
 const CATEGORY_NAMES: [&str; NUM_CATEGORIES] = [
-    "Other", "Image", "Video", "Audio", "Archive", "Disk image", "Database",
-    "Source code", "Document", "Executable", "Log", "Cache",
+    "Other",
+    "Image",
+    "Video",
+    "Audio",
+    "Archive",
+    "Disk image",
+    "Database",
+    "Source code",
+    "Document",
+    "Executable",
+    "Log",
+    "Cache",
 ];
 
 const ALL: [Category; NUM_CATEGORIES] = [
-    Category::Other, Category::Image, Category::Video, Category::Audio, Category::Archive,
-    Category::DiskImage, Category::Database, Category::Code, Category::Document,
-    Category::Executable, Category::Log, Category::Cache,
+    Category::Other,
+    Category::Image,
+    Category::Video,
+    Category::Audio,
+    Category::Archive,
+    Category::DiskImage,
+    Category::Database,
+    Category::Code,
+    Category::Document,
+    Category::Executable,
+    Category::Log,
+    Category::Cache,
 ];
 
 impl Category {
@@ -98,8 +117,12 @@ fn ext_table() -> &'static HashMap<&'static str, Category> {
 pub fn category_for(ext: &str, in_cache: bool, in_log: bool) -> Category {
     let c = ext_table().get(ext).copied();
     match c {
-        _ if in_cache && matches!(c, None | Some(Category::Other) | Some(Category::Code)) => Category::Cache,
-        _ if in_log && matches!(c, None | Some(Category::Archive) | Some(Category::Other)) => Category::Log,
+        _ if in_cache && matches!(c, None | Some(Category::Other) | Some(Category::Code)) => {
+            Category::Cache
+        }
+        _ if in_log && matches!(c, None | Some(Category::Archive) | Some(Category::Other)) => {
+            Category::Log
+        }
         Some(c) => c,
         None => Category::Other,
     }
@@ -114,7 +137,8 @@ pub fn path_hints(path: &[u8]) -> (bool, bool) {
             continue;
         }
         match part.to_ascii_lowercase().as_slice() {
-            b"cache" | b".cache" | b"caches" | b"__pycache__" | b".npm" | b".gradle" | b"inetcache" | b"temp" | b"tmp" => in_cache = true,
+            b"cache" | b".cache" | b"caches" | b"__pycache__" | b".npm" | b".gradle"
+            | b"inetcache" | b"temp" | b"tmp" => in_cache = true,
             b"log" | b"logs" | b".logs" | b"journal" => in_log = true,
             _ => {}
         }

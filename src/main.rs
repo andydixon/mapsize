@@ -7,11 +7,36 @@ use std::path::Path;
 
 /// Flags taking a value (Go's flag package: `-f v`, `-f=v`, `--f v`, `--f=v`).
 const VALUE_FLAGS: &[&str] = &[
-    "workers", "follow-symlinks", "depth", "top", "largest-files", "save", "snapshot", "load", "scan",
-    "theme", "color", "log", "log-level", "exclude",
+    "workers",
+    "follow-symlinks",
+    "depth",
+    "top",
+    "largest-files",
+    "save",
+    "snapshot",
+    "load",
+    "scan",
+    "theme",
+    "color",
+    "log",
+    "log-level",
+    "exclude",
 ];
 /// Boolean flags (`-f`, `-f=false`).
-const BOOL_FLAGS: &[&str] = &["one-file-system", "x", "read-only", "no-ui", "json", "csv", "duplicates", "compare", "si", "apparent", "no-mouse", "version"];
+const BOOL_FLAGS: &[&str] = &[
+    "one-file-system",
+    "x",
+    "read-only",
+    "no-ui",
+    "json",
+    "csv",
+    "duplicates",
+    "compare",
+    "si",
+    "apparent",
+    "no-mouse",
+    "version",
+];
 
 fn usage() {
     let n = brand::NAME;
@@ -54,7 +79,10 @@ Flags:
 }
 
 fn main() {
-    std::process::exit(run(std::env::args_os().skip(1).map(|a| a.to_string_lossy().into_owned()).collect()));
+    std::process::exit(run(std::env::args_os()
+        .skip(1)
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect()));
 }
 
 fn fail(msg: impl std::fmt::Display) -> i32 {
@@ -74,7 +102,11 @@ fn run(args: Vec<String>) -> i32 {
             positional.extend(it.by_ref());
             break;
         }
-        let Some(flag) = a.strip_prefix("--").or_else(|| a.strip_prefix('-')).filter(|f| !f.is_empty() && a != "-") else {
+        let Some(flag) = a
+            .strip_prefix("--")
+            .or_else(|| a.strip_prefix('-'))
+            .filter(|f| !f.is_empty() && a != "-")
+        else {
             positional.push(a);
             continue;
         };
@@ -90,10 +122,17 @@ fn run(args: Vec<String>) -> i32 {
             match inline.as_deref().map(str::parse::<bool>) {
                 None => bools.insert(n, true),
                 Some(Ok(v)) => bools.insert(n, v),
-                Some(Err(_)) => return fail(format!("invalid boolean value {:?} for -{n}", inline.unwrap())),
+                Some(Err(_)) => {
+                    return fail(format!(
+                        "invalid boolean value {:?} for -{n}",
+                        inline.unwrap()
+                    ))
+                }
             };
         } else if let Some(&n) = VALUE_FLAGS.iter().find(|&&f| f == name) {
-            let Some(v) = inline.or_else(|| it.next()) else { return fail(format!("flag needs an argument: -{n}")) };
+            let Some(v) = inline.or_else(|| it.next()) else {
+                return fail(format!("flag needs an argument: -{n}"));
+            };
             if n == "exclude" {
                 excludes.push(v);
             } else {
@@ -107,11 +146,20 @@ fn run(args: Vec<String>) -> i32 {
     let b = |n: &str| bools.get(n).copied();
     let v = |n: &str| vals.get(n).cloned();
     let int = |n: &str, d: i64| -> Result<i64, String> {
-        v(n).map_or(Ok(d), |s| s.parse().map_err(|_| format!("invalid value {s:?} for flag -{n}: parse error")))
+        v(n).map_or(Ok(d), |s| {
+            s.parse()
+                .map_err(|_| format!("invalid value {s:?} for flag -{n}: parse error"))
+        })
     };
 
     if b("version") == Some(true) {
-        println!("{} {} ({}/{})", brand::NAME, brand::VERSION, std::env::consts::OS, std::env::consts::ARCH);
+        println!(
+            "{} {} ({}/{})",
+            brand::NAME,
+            brand::VERSION,
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        );
         return 0;
     }
     if let Some(e) = cfg_err {
@@ -143,7 +191,11 @@ fn run(args: Vec<String>) -> i32 {
         color: v("color").unwrap_or_else(|| "auto".into()),
         load: v("load").unwrap_or_default(),
         save: v("save").or_else(|| v("snapshot")).unwrap_or_default(),
-        size_mode: if b("apparent").unwrap_or(settings.size_mode == "logical") { SizeMode::Logical } else { SizeMode::Allocated },
+        size_mode: if b("apparent").unwrap_or(settings.size_mode == "logical") {
+            SizeMode::Logical
+        } else {
+            SizeMode::Allocated
+        },
         ..Config::new(settings.clone())
     };
     if let Some(p) = v("scan") {
@@ -158,7 +210,10 @@ fn run(args: Vec<String>) -> i32 {
         if positional.len() > 1 {
             return fail("only one path may be scanned at a time");
         }
-        if positional.len() == 1 && cfg.load.is_empty() && snapshot::is_snapshot(Path::new(&positional[0])) {
+        if positional.len() == 1
+            && cfg.load.is_empty()
+            && snapshot::is_snapshot(Path::new(&positional[0]))
+        {
             cfg.load = positional.remove(0);
         } else {
             cfg.paths = positional;
@@ -168,14 +223,17 @@ fn run(args: Vec<String>) -> i32 {
         Ok(w) => w,
         Err(e) => return fail(e),
     };
-    let follow = match scan::parse_follow(&v("follow-symlinks").unwrap_or_else(|| settings.follow_symlinks.clone())) {
+    let follow = match scan::parse_follow(
+        &v("follow-symlinks").unwrap_or_else(|| settings.follow_symlinks.clone()),
+    ) {
         Ok(f) => f,
         Err(e) => return fail(e),
     };
     cfg.scan_opts = scan::Options {
         workers,
         follow,
-        one_file_system: b("one-file-system").unwrap_or(settings.one_file_system) || b("x").unwrap_or(false),
+        one_file_system: b("one-file-system").unwrap_or(settings.one_file_system)
+            || b("x").unwrap_or(false),
         excludes,
         ..Default::default()
     };

@@ -46,7 +46,11 @@ impl Default for Settings {
 
 /// The config file location.
 pub fn path() -> Option<PathBuf> {
-    let env = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from);
+    let env = |k: &str| {
+        std::env::var_os(k)
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+    };
     let dir = if cfg!(target_os = "macos") {
         env("HOME")?.join("Library/Application Support")
     } else {
@@ -57,7 +61,9 @@ pub fn path() -> Option<PathBuf> {
 
 /// Reads the config file if present. A missing file is not an error.
 pub fn load() -> (Settings, Option<String>) {
-    let Some(p) = path() else { return (Settings::default(), None) };
+    let Some(p) = path() else {
+        return (Settings::default(), None);
+    };
     let b = match std::fs::read(&p) {
         Ok(b) => b,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return (Settings::default(), None),

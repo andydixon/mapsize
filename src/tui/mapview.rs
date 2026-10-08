@@ -70,8 +70,14 @@ impl Model {
             }
         }
         let mut l = TmLayout {
-            zoom: self.zoom, rect: r, ver: self.data_ver, blocks: Vec::new(), nested: Vec::new(),
-            groups: HashMap::new(), visible: HashSet::new(), inner: HashSet::new(),
+            zoom: self.zoom,
+            rect: r,
+            ver: self.data_ver,
+            blocks: Vec::new(),
+            nested: Vec::new(),
+            groups: HashMap::new(),
+            visible: HashSet::new(),
+            inner: HashSet::new(),
         };
         l.blocks = self.layout_level(tr, &mut l, self.zoom, r, TOP_MIN_AREA, TOP_MAX_ITEMS);
         for i in 0..l.blocks.len() {
@@ -99,34 +105,87 @@ impl Model {
 
     /// Lays out the children of parent in r with level-of-detail grouping:
     /// children too small to be useful collapse into one group block.
-    fn layout_level(&mut self, tr: &Tree, l: &mut TmLayout, parent: NodeId, r: Rect, min_area: i32, max_items: usize) -> Vec<Block> {
+    fn layout_level(
+        &mut self,
+        tr: &Tree,
+        l: &mut TmLayout,
+        parent: NodeId,
+        r: Rect,
+        min_area: i32,
+        max_items: usize,
+    ) -> Vec<Block> {
         let k = self.kids_of(tr, parent);
         if k.ids.is_empty() || r.empty() {
             return Vec::new();
         }
         let sizes: Vec<f64> = k.sizes.iter().map(|&s| s as f64).collect();
         let vis = treemap::visible(&sizes, k.total as f64, r.area(), min_area, max_items);
-        let mut items: Vec<Item> = (0..vis).map(|i| Item { id: k.ids[i] as i64, size: sizes[i] }).collect();
+        let mut items: Vec<Item> = (0..vis)
+            .map(|i| Item {
+                id: k.ids[i] as i64,
+                size: sizes[i],
+            })
+            .collect();
         if vis < k.ids.len() {
             let size = k.sizes[vis..].iter().sum();
             let gid = group_id(parent);
-            l.groups.insert(gid, Group { parent, kids: k.clone(), from: vis, size });
-            items.push(Item { id: gid, size: size as f64 });
+            l.groups.insert(
+                gid,
+                Group {
+                    parent,
+                    kids: k.clone(),
+                    from: vis,
+                    size,
+                },
+            );
+            items.push(Item {
+                id: gid,
+                size: size as f64,
+            });
         }
         treemap::squarify(&items, r)
     }
 
     fn layout_nested(&mut self, tr: &Tree, l: &mut TmLayout, parent: NodeId, r: Rect, depth: i32) {
         // Deeper levels need bigger blocks to stay legible rather than noisy.
-        let blocks = self.layout_level(tr, l, parent, r, NEST_MIN_AREA * (depth - 1), NEST_MAX_ITEMS);
+        let blocks = self.layout_level(
+            tr,
+            l,
+            parent,
+            r,
+            NEST_MIN_AREA * (depth - 1),
+            NEST_MAX_ITEMS,
+        );
         for (i, b) in blocks.iter().enumerate() {
             let idx = l.nested.len();
-            l.nested.push(Nested { id: b.id, r: b.rect, depth, alt: i % 2 == 1, inner: false });
+            l.nested.push(Nested {
+                id: b.id,
+                r: b.rect,
+                depth,
+                alt: i % 2 == 1,
+                inner: false,
+            });
             let br = b.rect;
-            if depth < MAX_NEST_DEPTH && b.id >= 0 && br.w >= NEST_RECURSE_W && br.h >= NEST_RECURSE_H && tr.node(b.id as NodeId).is_dir() {
+            if depth < MAX_NEST_DEPTH
+                && b.id >= 0
+                && br.w >= NEST_RECURSE_W
+                && br.h >= NEST_RECURSE_H
+                && tr.node(b.id as NodeId).is_dir()
+            {
                 l.nested[idx].inner = true;
                 let end = self.chain_end(tr, b.id as NodeId);
-                self.layout_nested(tr, l, end, Rect { x: br.x, y: br.y + 1, w: br.w - 1, h: br.h - 2 }, depth + 1);
+                self.layout_nested(
+                    tr,
+                    l,
+                    end,
+                    Rect {
+                        x: br.x,
+                        y: br.y + 1,
+                        w: br.w - 1,
+                        h: br.h - 2,
+                    },
+                    depth + 1,
+                );
             }
         }
     }
@@ -182,7 +241,9 @@ impl Model {
     /// The size of the folder a block sits in.
     fn parent_size(&self, tr: &Tree, id: i64) -> i64 {
         if is_group(id) {
-            return self.group_info(id).map_or(0, |g| self.size_of(tr, g.parent));
+            return self
+                .group_info(id)
+                .map_or(0, |g| self.size_of(tr, g.parent));
         }
         let p = tr.node(id as NodeId).parent;
         if p != NO_NODE {
@@ -191,7 +252,15 @@ impl Model {
         0
     }
 
-    fn paint_top(&mut self, tr: &Tree, cv: &mut Canvas, b: Block, sel: bool, hov: bool, total: i64) {
+    fn paint_top(
+        &mut self,
+        tr: &Tree,
+        cv: &mut Canvas,
+        b: Block,
+        sel: bool,
+        hov: bool,
+        total: i64,
+    ) {
         let t = self.theme.clone();
         let base = self.color_of(tr, b.id);
         let fill = base.mix(t.bg, 0.62);
@@ -234,7 +303,13 @@ impl Model {
             title.attr = BOLD;
         }
         cv.draw_box(r, bx, frame);
-        cv.text(r.x + 1, r.y, &trunc(&format!(" {name} "), r.w - 2), r.w - 2, title);
+        cv.text(
+            r.x + 1,
+            r.y,
+            &trunc(&format!(" {name} "), r.w - 2),
+            r.w - 2,
+            title,
+        );
 
         let mut label = textutil::size(size);
         let pct = textutil::percent(size, total);
@@ -245,7 +320,17 @@ impl Model {
         }
         let label = format!(" {label} ");
         if r.h >= 3 && tw(&label) <= r.w - 2 {
-            cv.text_right(r.x + 1, r.y + r.h - 1, r.w - 2, &label, Style { fg: frame.fg, bg: fill, attr: frame.attr });
+            cv.text_right(
+                r.x + 1,
+                r.y + r.h - 1,
+                r.w - 2,
+                &label,
+                Style {
+                    fg: frame.fg,
+                    bg: fill,
+                    attr: frame.attr,
+                },
+            );
         }
         // Interior labels for blocks without nested previews.
         let inn = r.inset(1);
@@ -266,7 +351,13 @@ impl Model {
         }
         let y0 = inn.y + (inn.h - lines.len() as i32) / 2;
         for (i, s) in lines.iter().enumerate() {
-            cv.text_centered(inn.x, y0 + i as i32, inn.w, s, Style::new(base.mix(t.fg, 0.4), fill));
+            cv.text_centered(
+                inn.x,
+                y0 + i as i32,
+                inn.w,
+                s,
+                Style::new(base.mix(t.fg, 0.4), fill),
+            );
         }
     }
 
@@ -298,10 +389,28 @@ impl Model {
             }
         } else {
             if r.w >= 4 {
-                cv.fill(Rect { x: r.x + r.w - 1, y: r.y, w: 1, h: r.h }, " ", Style::new(Default::default(), shadow));
+                cv.fill(
+                    Rect {
+                        x: r.x + r.w - 1,
+                        y: r.y,
+                        w: 1,
+                        h: r.h,
+                    },
+                    " ",
+                    Style::new(Default::default(), shadow),
+                );
             }
             if r.h >= 3 {
-                cv.fill(Rect { x: r.x, y: r.y + r.h - 1, w: r.w, h: 1 }, " ", Style::new(Default::default(), shadow));
+                cv.fill(
+                    Rect {
+                        x: r.x,
+                        y: r.y + r.h - 1,
+                        w: r.w,
+                        h: 1,
+                    },
+                    " ",
+                    Style::new(Default::default(), shadow),
+                );
             }
         }
         let lw = if t.mono { r.w - 2 } else { r.w - 1 };
@@ -314,7 +423,13 @@ impl Model {
         if tw(&name) > lw && lw < 8 {
             return; // a stub like "te…" is noise, not information
         }
-        cv.text(lx, ly, &trunc(&name, lw), lw, Style::new(st.fg, bg).with(BOLD));
+        cv.text(
+            lx,
+            ly,
+            &trunc(&name, lw),
+            lw,
+            Style::new(st.fg, bg).with(BOLD),
+        );
         if !nb.inner && r.h >= 3 && lw >= 5 {
             let size = self.block_size(tr, nb.id);
             let mut label = textutil::size_compact(size);
@@ -322,7 +437,13 @@ impl Model {
             if tw(&label) + tw(&pct) + 3 <= lw {
                 label += &format!(" · {pct}");
             }
-            cv.text(lx, ly + 1, &trunc(&label, lw), lw, Style::new(bg.mix(st.fg, 0.7), bg));
+            cv.text(
+                lx,
+                ly + 1,
+                &trunc(&label, lw),
+                lw,
+                Style::new(bg.mix(st.fg, 0.7), bg),
+            );
         }
     }
 }
@@ -337,7 +458,11 @@ pub(crate) fn map_paint(m: &mut Model, tr: &Tree, cv: &mut Canvas, r: Rect) {
         } else if m.scanning {
             "Scanning…".to_string()
         } else if !z.is_dir() {
-            format!("{} — {}", san(&z.name), textutil::size(m.size_of(tr, m.zoom)))
+            format!(
+                "{} — {}",
+                san(&z.name),
+                textutil::size(m.size_of(tr, m.zoom))
+            )
         } else {
             "Empty directory".to_string()
         };
@@ -354,7 +479,10 @@ pub(crate) fn map_paint(m: &mut Model, tr: &Tree, cv: &mut Canvas, r: Rect) {
         m.paint_nested(tr, cv, nb);
     }
     for b in &l.blocks {
-        m.hits.push(Hit { r: b.rect, act: HitAct::Block(b.id) });
+        m.hits.push(Hit {
+            r: b.rect,
+            act: HitAct::Block(b.id),
+        });
     }
 }
 

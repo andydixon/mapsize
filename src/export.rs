@@ -8,17 +8,27 @@ use std::io::{self, Write};
 use std::time::UNIX_EPOCH;
 
 const FLAG_NAMES: [(Flags, &str); 12] = [
-    (inv::FLAG_HARDLINK_DUP, "hardlink-duplicate"), (inv::FLAG_MOUNT_POINT, "mount-point"),
-    (inv::FLAG_VIRTUAL_FS, "virtual-fs-skipped"), (inv::FLAG_SKIPPED_FS, "other-fs-skipped"),
-    (inv::FLAG_SPARSE, "sparse"), (inv::FLAG_ERROR, "error"), (inv::FLAG_INCOMPLETE, "incomplete"),
-    (inv::FLAG_LOOP, "loop-skipped"), (inv::FLAG_FOLLOWED, "followed-symlink"),
-    (inv::FLAG_ALLOC_UNKNOWN, "allocated-unknown"), (inv::FLAG_BROKEN_LINK, "broken-symlink"),
+    (inv::FLAG_HARDLINK_DUP, "hardlink-duplicate"),
+    (inv::FLAG_MOUNT_POINT, "mount-point"),
+    (inv::FLAG_VIRTUAL_FS, "virtual-fs-skipped"),
+    (inv::FLAG_SKIPPED_FS, "other-fs-skipped"),
+    (inv::FLAG_SPARSE, "sparse"),
+    (inv::FLAG_ERROR, "error"),
+    (inv::FLAG_INCOMPLETE, "incomplete"),
+    (inv::FLAG_LOOP, "loop-skipped"),
+    (inv::FLAG_FOLLOWED, "followed-symlink"),
+    (inv::FLAG_ALLOC_UNKNOWN, "allocated-unknown"),
+    (inv::FLAG_BROKEN_LINK, "broken-symlink"),
     (inv::FLAG_HARDLINKED, "hardlinked"),
 ];
 
 /// Human-readable names for a node's flags.
 pub fn flag_list(f: Flags) -> Vec<&'static str> {
-    FLAG_NAMES.iter().filter(|(b, _)| f & b != 0).map(|(_, n)| *n).collect()
+    FLAG_NAMES
+        .iter()
+        .filter(|(b, _)| f & b != 0)
+        .map(|(_, n)| *n)
+        .collect()
 }
 
 fn kind_name(k: Kind) -> &'static str {
@@ -41,7 +51,10 @@ pub fn json(w: &mut dyn Write, t: &Tree, root: NodeId, max_depth: i64) -> io::Re
         .filter(|(_, &c)| c > 0)
         .map(|(k, &c)| (inv::ErrKind::from_u8(k as u8).name().to_string(), c.into()))
         .collect();
-    let started = st.start.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos() as i64);
+    let started = st
+        .start
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos() as i64);
     let head = serde_json::json!({
         "generator": format!("{} {}", brand::NAME, brand::VERSION),
         "root": t.path_string(root),
@@ -66,7 +79,14 @@ pub fn json(w: &mut dyn Write, t: &Tree, root: NodeId, max_depth: i64) -> io::Re
 /// proportional to depth, not tree size.
 fn write_node(bw: &mut impl Write, t: &Tree, id: NodeId, depth: i64) -> io::Result<()> {
     let n = t.node(id);
-    write!(bw, "{{\"name\":{},\"type\":\"{}\",\"size\":{},\"allocated\":{}", json_str(&n.name_str()), kind_name(n.kind), n.tot_size, n.tot_alloc)?;
+    write!(
+        bw,
+        "{{\"name\":{},\"type\":\"{}\",\"size\":{},\"allocated\":{}",
+        json_str(&n.name_str()),
+        kind_name(n.kind),
+        n.tot_size,
+        n.tot_alloc
+    )?;
     for (k, v) in [("files", n.files), ("dirs", n.dirs), ("errors", n.errors)] {
         if v != 0 {
             write!(bw, ",\"{k}\":{v}")?;
@@ -83,7 +103,11 @@ fn write_node(bw: &mut impl Write, t: &Tree, id: NodeId, depth: i64) -> io::Resu
         return bw.write_all(b"}");
     }
     bw.write_all(b",\"children\":[")?;
-    for (i, c) in t.sorted_children(id, SizeMode::Allocated).into_iter().enumerate() {
+    for (i, c) in t
+        .sorted_children(id, SizeMode::Allocated)
+        .into_iter()
+        .enumerate()
+    {
         if i > 0 {
             bw.write_all(b",")?;
         }
@@ -107,20 +131,35 @@ pub fn csv(w: &mut dyn Write, t: &Tree, root: NodeId, max_depth: i64) -> io::Res
     bw.write_all(b"path,type,size,allocated,files,dirs,errors,modified,flags\n")?;
     fn rec(bw: &mut impl Write, t: &Tree, id: NodeId, path: &[u8], depth: i64) -> io::Result<()> {
         let n = t.node(id);
-        let modified = if n.mtime != 0 { textutil::rfc3339_utc(n.mtime) } else { String::new() };
+        let modified = if n.mtime != 0 {
+            textutil::rfc3339_utc(n.mtime)
+        } else {
+            String::new()
+        };
         writeln!(
             bw,
             "{},{},{},{},{},{},{},{},{}",
             csv_field(&textutil::sanitize_bytes(path)),
             kind_name(n.kind),
-            n.tot_size, n.tot_alloc, n.files, n.dirs, n.errors, modified,
+            n.tot_size,
+            n.tot_alloc,
+            n.files,
+            n.dirs,
+            n.errors,
+            modified,
             flag_list(n.flags).join("|")
         )?;
         if depth == 0 {
             return Ok(());
         }
         for c in t.sorted_children(id, SizeMode::Allocated) {
-            rec(bw, t, c, &crate::platform::join_path(path, &t.node(c).name), depth - 1)?;
+            rec(
+                bw,
+                t,
+                c,
+                &crate::platform::join_path(path, &t.node(c).name),
+                depth - 1,
+            )?;
         }
         Ok(())
     }
@@ -134,7 +173,11 @@ pub fn table(w: &mut dyn Write, t: &Tree, ids: &[NodeId], m: SizeMode) -> io::Re
     writeln!(w, "{:>12} {:>6} {:>12}  PATH", "SIZE", "%", "FILES")?;
     for &id in ids {
         let n = t.node(id);
-        let files = if n.is_dir() { textutil::count(n.files as i64) } else { String::new() };
+        let files = if n.is_dir() {
+            textutil::count(n.files as i64)
+        } else {
+            String::new()
+        };
         writeln!(
             w,
             "{:>12} {:>6} {:>12}  {}",
@@ -152,30 +195,65 @@ pub fn summary(w: &mut dyn Write, t: &Tree) -> io::Result<()> {
     let st = &t.stats;
     let r = t.node(t.root());
     writeln!(w, "Root            {}", textutil::sanitize_bytes(&st.root))?;
-    writeln!(w, "Files           {}", textutil::count(st.files + st.symlinks + st.others))?;
+    writeln!(
+        w,
+        "Files           {}",
+        textutil::count(st.files + st.symlinks + st.others)
+    )?;
     writeln!(w, "Directories     {}", textutil::count(st.dirs))?;
-    writeln!(w, "Logical size    {} ({} bytes)", textutil::size(r.tot_size), r.tot_size)?;
-    writeln!(w, "Allocated size  {} ({} bytes)", textutil::size(r.tot_alloc), r.tot_alloc)?;
+    writeln!(
+        w,
+        "Logical size    {} ({} bytes)",
+        textutil::size(r.tot_size),
+        r.tot_size
+    )?;
+    writeln!(
+        w,
+        "Allocated size  {} ({} bytes)",
+        textutil::size(r.tot_alloc),
+        r.tot_alloc
+    )?;
     writeln!(w, "Elapsed         {}", textutil::go_duration(st.elapsed()))?;
     for (k, &c) in st.err_counts.iter().enumerate() {
         if c > 0 {
-            writeln!(w, "{:<15} {}", inv::ErrKind::from_u8(k as u8).name(), textutil::count(c))?;
+            writeln!(
+                w,
+                "{:<15} {}",
+                inv::ErrKind::from_u8(k as u8).name(),
+                textutil::count(c)
+            )?;
         }
     }
     if st.excluded > 0 {
-        writeln!(w, "Excluded        {} entries ({})", textutil::count(st.excluded), textutil::sanitize(&st.excludes.join(", ")))?;
+        writeln!(
+            w,
+            "Excluded        {} entries ({})",
+            textutil::count(st.excluded),
+            textutil::sanitize(&st.excludes.join(", "))
+        )?;
     }
     if st.skipped_mounts > 0 {
         writeln!(w, "Other FS skipped {}", textutil::count(st.skipped_mounts))?;
     }
     if st.virtual_skipped > 0 {
-        writeln!(w, "Virtual FS skipped {}", textutil::count(st.virtual_skipped))?;
+        writeln!(
+            w,
+            "Virtual FS skipped {}",
+            textutil::count(st.virtual_skipped)
+        )?;
     }
     if st.hardlink_dups > 0 {
-        writeln!(w, "Hard-link dups  {} (counted once)", textutil::count(st.hardlink_dups))?;
+        writeln!(
+            w,
+            "Hard-link dups  {} (counted once)",
+            textutil::count(st.hardlink_dups)
+        )?;
     }
     if st.incomplete() {
-        writeln!(w, "WARNING: totals are incomplete — some data could not be inspected.")?;
+        writeln!(
+            w,
+            "WARNING: totals are incomplete — some data could not be inspected."
+        )?;
     }
     Ok(())
 }
@@ -199,11 +277,27 @@ mod tests {
     fn outputs_are_terminal_safe() {
         let t = hostile_tree();
         for out in [
-            { let mut b = Vec::new(); json(&mut b, &t, 0, -1).unwrap(); b },
-            { let mut b = Vec::new(); csv(&mut b, &t, 0, -1).unwrap(); b },
-            { let mut b = Vec::new(); table(&mut b, &t, &[1, 2], SizeMode::Allocated).unwrap(); b },
+            {
+                let mut b = Vec::new();
+                json(&mut b, &t, 0, -1).unwrap();
+                b
+            },
+            {
+                let mut b = Vec::new();
+                csv(&mut b, &t, 0, -1).unwrap();
+                b
+            },
+            {
+                let mut b = Vec::new();
+                table(&mut b, &t, &[1, 2], SizeMode::Allocated).unwrap();
+                b
+            },
         ] {
-            assert!(!out.iter().any(|&c| c == 0x1b || c == 0x07), "{}", String::from_utf8_lossy(&out));
+            assert!(
+                !out.iter().any(|&c| c == 0x1b || c == 0x07),
+                "{}",
+                String::from_utf8_lossy(&out)
+            );
         }
         let mut b = Vec::new();
         json(&mut b, &t, 0, -1).unwrap();

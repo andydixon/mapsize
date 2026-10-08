@@ -1,7 +1,7 @@
 //! Key dispatch and the actions keys trigger.
 
-use super::model::{is_group, Cmd, Key, Model, Msg};
 use super::modals::{new_group_modal, new_help_modal, new_info_modal, new_save_modal};
+use super::model::{is_group, Cmd, Key, Model, Msg};
 use super::theme::{load_theme, theme_names};
 use super::views::View;
 use super::{fmt_stamp_now, san};
@@ -53,13 +53,19 @@ impl Model {
             }
             "tab" => self.set_view((self.view + 1) % self.views.len()),
             "shift+tab" => self.set_view((self.view + self.views.len() - 1) % self.views.len()),
-            "1" | "2" | "3" | "4" | "5" | "6" | "7" => self.set_view((k.as_bytes()[0] - b'1') as usize),
+            "1" | "2" | "3" | "4" | "5" | "6" | "7" => {
+                self.set_view((k.as_bytes()[0] - b'1') as usize)
+            }
             "enter" => return self.inspect_selection(&tr),
             "space" | "right" => return self.zoom_into_selection(&tr),
             "backspace" | "left" => self.zoom_out(&tr),
             "home" => self.zoom_to(&tr, 0),
             "a" => {
-                self.size_mode = if self.size_mode == SizeMode::Allocated { SizeMode::Logical } else { SizeMode::Allocated };
+                self.size_mode = if self.size_mode == SizeMode::Allocated {
+                    SizeMode::Logical
+                } else {
+                    SizeMode::Allocated
+                };
                 self.invalidate();
                 let mut cmds = Vec::new();
                 if self.search.query.is_some() {
@@ -88,7 +94,10 @@ impl Model {
             "d" | "delete" => return self.request_trash(&tr),
             "T" => {
                 let names = theme_names();
-                let cur = names.iter().position(|n| *n == self.theme.name).unwrap_or(0);
+                let cur = names
+                    .iter()
+                    .position(|n| *n == self.theme.name)
+                    .unwrap_or(0);
                 let ascii = self.theme.ascii;
                 let mut th = load_theme(names[(cur + 1) % names.len()], &self.opts.settings);
                 th.ascii = ascii;
@@ -200,7 +209,10 @@ impl Model {
             return self.info(msg);
         }
         if let Err(e) = platform::reveal(&tr.path(id)) {
-            return self.warn(format!("Open failed: {}", textutil::sanitize(&e.to_string())));
+            return self.warn(format!(
+                "Open failed: {}",
+                textutil::sanitize(&e.to_string())
+            ));
         }
         self.info("Opened in file manager")
     }
@@ -210,7 +222,9 @@ impl Model {
         Cmd::run(move || {
             let err = {
                 let g = t.read().unwrap();
-                snapshot::save_file(Path::new(&path), &g).err().map(|e| e.to_string())
+                snapshot::save_file(Path::new(&path), &g)
+                    .err()
+                    .map(|e| e.to_string())
             };
             Msg::SaveDone { path, err }
         })
@@ -224,5 +238,7 @@ pub(crate) fn default_snapshot_name(root: &[u8]) -> String {
         None => "root".into(),
     };
     let wd = std::env::current_dir().unwrap_or_default();
-    wd.join(format!("{base}-{}{}", fmt_stamp_now(), brand::SNAPSHOT_EXT)).to_string_lossy().into_owned()
+    wd.join(format!("{base}-{}{}", fmt_stamp_now(), brand::SNAPSHOT_EXT))
+        .to_string_lossy()
+        .into_owned()
 }

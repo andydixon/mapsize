@@ -28,7 +28,8 @@ pub fn compare(old: Tree, new: &Tree) -> Diff {
         if !old.node(o).is_dir() || !new.node(n).is_dir() {
             continue;
         }
-        let mut by_name: HashMap<&[u8], NodeId> = old.children(o).map(|(id, c)| (&c.name[..], id)).collect();
+        let mut by_name: HashMap<&[u8], NodeId> =
+            old.children(o).map(|(id, c)| (&c.name[..], id)).collect();
         for (id, c) in new.children(n) {
             if let Some(oid) = by_name.remove(&c.name[..]) {
                 stack.push((oid, id));
@@ -43,7 +44,12 @@ pub fn compare(old: Tree, new: &Tree) -> Diff {
         }
     }
     removed.sort_unstable();
-    Diff { old, old_of, removed, removed_under }
+    Diff {
+        old,
+        old_of,
+        removed,
+        removed_under,
+    }
 }
 
 /// Classifies a node.
@@ -115,7 +121,10 @@ impl Diff {
                 continue;
             }
             let n = new.node(id);
-            if self.old_of[id as usize] != NO_NODE && n.is_dir() && self.explained_by_child(new, id, delta, m) {
+            if self.old_of[id as usize] != NO_NODE
+                && n.is_dir()
+                && self.explained_by_child(new, id, delta, m)
+            {
                 continue;
             }
             if n.parent != NO_NODE && self.old_of[n.parent as usize] == NO_NODE {
@@ -132,9 +141,21 @@ impl Diff {
         }
         for &oid in &self.removed {
             let o = self.old.node(oid).total(m);
-            out.push(Change { path: self.old.path_string(oid), status: Status::Removed, delta: -o, old: o, new: 0, node: NO_NODE });
+            out.push(Change {
+                path: self.old.path_string(oid),
+                status: Status::Removed,
+                delta: -o,
+                old: o,
+                new: 0,
+                node: NO_NODE,
+            });
         }
-        out.sort_by(|a, b| b.delta.unsigned_abs().cmp(&a.delta.unsigned_abs()).then_with(|| a.path.cmp(&b.path)));
+        out.sort_by(|a, b| {
+            b.delta
+                .unsigned_abs()
+                .cmp(&a.delta.unsigned_abs())
+                .then_with(|| a.path.cmp(&b.path))
+        });
         if k > 0 {
             out.truncate(k);
         }

@@ -11,7 +11,9 @@ use crate::brand;
 use crate::cancel::Cancel;
 use crate::textutil;
 use crossbeam_channel::{after, select, Receiver, Sender};
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind};
+use crossterm::event::{
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind,
+};
 use crossterm::{cursor, execute, terminal};
 use std::fmt::Write as _;
 use std::io::{self, Write};
@@ -26,7 +28,8 @@ static TERMINATED: AtomicBool = AtomicBool::new(false);
 
 /// Mouse off (1000/1002/1003/1015/1006), bracketed paste off, cursor on,
 /// main screen.
-const RESTORE: &str = "\x1b[?1006l\x1b[?1015l\x1b[?1003l\x1b[?1002l\x1b[?1000l\x1b[?2004l\x1b[?25h\x1b[?1049l";
+const RESTORE: &str =
+    "\x1b[?1006l\x1b[?1015l\x1b[?1003l\x1b[?1002l\x1b[?1000l\x1b[?2004l\x1b[?25h\x1b[?1049l";
 
 fn write_raw(s: &str) {
     let mut b = s.as_bytes();
@@ -84,7 +87,18 @@ fn detect_profile() -> Profile {
     if ct == "truecolor" || ct == "24bit" || term.ends_with("-direct") {
         return Profile::TrueColor;
     }
-    if ["kitty", "alacritty", "wezterm", "ghostty", "foot", "contour", "rio"].iter().any(|t| term.contains(t)) {
+    if [
+        "kitty",
+        "alacritty",
+        "wezterm",
+        "ghostty",
+        "foot",
+        "contour",
+        "rio",
+    ]
+    .iter()
+    .any(|t| term.contains(t))
+    {
         return Profile::TrueColor;
     }
     if term.contains("256color") || !ct.is_empty() {
@@ -100,7 +114,11 @@ pub fn run(opts: Options) -> Result<(), crate::Error> {
     let forced = forced_profile(&opts.color);
     if forced.is_none() && !opts.color.is_empty() && opts.color != "auto" {
         cancel.cancel();
-        return Err(format!("invalid --color {:?} (auto, truecolor, 256, 16, none)", opts.color).into());
+        return Err(format!(
+            "invalid --color {:?} (auto, truecolor, 256, 16, none)",
+            opts.color
+        )
+        .into());
     }
     let mouse = opts.mouse;
     let mut m = Model::new(opts, s, t, cancel.clone());
@@ -111,7 +129,11 @@ pub fn run(opts: Options) -> Result<(), crate::Error> {
         std::thread::spawn(|| {
             std::thread::sleep(Duration::from_millis(500));
             // Mirrors the scanner's guard: a worker panic aborts after the hook.
-            if std::panic::catch_unwind(|| panic!("MAPSIZE_DEBUG_PANIC=scanner: deliberate panic to test terminal restoration")).is_err() {
+            if std::panic::catch_unwind(|| {
+                panic!("MAPSIZE_DEBUG_PANIC=scanner: deliberate panic to test terminal restoration")
+            })
+            .is_err()
+            {
                 std::process::abort();
             }
         });
@@ -127,7 +149,13 @@ fn enter_terminal(mouse: bool) -> io::Result<()> {
     terminal::enable_raw_mode()?;
     ACTIVE.store(true, Ordering::SeqCst);
     let mut out = io::stdout();
-    execute!(out, terminal::EnterAlternateScreen, cursor::Hide, event::EnableBracketedPaste, terminal::SetTitle(brand::NAME))?;
+    execute!(
+        out,
+        terminal::EnterAlternateScreen,
+        cursor::Hide,
+        event::EnableBracketedPaste,
+        terminal::SetTitle(brand::NAME)
+    )?;
     if mouse {
         execute!(out, event::EnableMouseCapture)?;
     }
@@ -140,7 +168,11 @@ fn convert_key(ev: KeyEvent) -> Option<Key> {
         return None;
     }
     let m = ev.modifiers;
-    let (ctrl, alt, shift) = (m.contains(KeyModifiers::CONTROL), m.contains(KeyModifiers::ALT), m.contains(KeyModifiers::SHIFT));
+    let (ctrl, alt, shift) = (
+        m.contains(KeyModifiers::CONTROL),
+        m.contains(KeyModifiers::ALT),
+        m.contains(KeyModifiers::SHIFT),
+    );
     let mut prefix = String::new();
     if ctrl {
         prefix += "ctrl+";
@@ -148,14 +180,37 @@ fn convert_key(ev: KeyEvent) -> Option<Key> {
     if alt {
         prefix += "alt+";
     }
-    let named = |n: &str| Some(Key { name: format!("{prefix}{}{n}", if shift { "shift+" } else { "" }), text: String::new(), ctrl_alt: ctrl || alt });
+    let named = |n: &str| {
+        Some(Key {
+            name: format!("{prefix}{}{n}", if shift { "shift+" } else { "" }),
+            text: String::new(),
+            ctrl_alt: ctrl || alt,
+        })
+    };
     match ev.code {
         KeyCode::Char(c) => {
-            let base = if c == ' ' { "space".to_string() } else if ctrl || alt { c.to_lowercase().collect() } else { c.to_string() };
-            let text = if ctrl || alt { String::new() } else { c.to_string() };
-            Some(Key { name: prefix + &base, text, ctrl_alt: ctrl || alt })
+            let base = if c == ' ' {
+                "space".to_string()
+            } else if ctrl || alt {
+                c.to_lowercase().collect()
+            } else {
+                c.to_string()
+            };
+            let text = if ctrl || alt {
+                String::new()
+            } else {
+                c.to_string()
+            };
+            Some(Key {
+                name: prefix + &base,
+                text,
+                ctrl_alt: ctrl || alt,
+            })
         }
-        KeyCode::BackTab => Some(Key { name: format!("{prefix}shift+tab"), ..Default::default() }),
+        KeyCode::BackTab => Some(Key {
+            name: format!("{prefix}shift+tab"),
+            ..Default::default()
+        }),
         KeyCode::Enter => named("enter"),
         KeyCode::Esc => named("esc"),
         KeyCode::Tab => named("tab"),
@@ -256,7 +311,9 @@ fn base64(b: &[u8]) -> String {
     const A: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut s = String::with_capacity(b.len().div_ceil(3) * 4);
     for c in b.chunks(3) {
-        let n = (c[0] as u32) << 16 | (*c.get(1).unwrap_or(&0) as u32) << 8 | *c.get(2).unwrap_or(&0) as u32;
+        let n = (c[0] as u32) << 16
+            | (*c.get(1).unwrap_or(&0) as u32) << 8
+            | *c.get(2).unwrap_or(&0) as u32;
         for i in 0..4 {
             if i <= c.len() {
                 s.push(A[(n >> (18 - 6 * i) & 63) as usize] as char);
@@ -332,7 +389,14 @@ fn line_diff(old: &str, new: &str) -> Vec<(usize, std::ops::Range<usize>)> {
 }
 
 impl Screen {
-    fn draw(&mut self, out: &mut impl Write, frame: &str, w: i32, h: i32, extra: &str) -> io::Result<()> {
+    fn draw(
+        &mut self,
+        out: &mut impl Write,
+        frame: &str,
+        w: i32,
+        h: i32,
+        extra: &str,
+    ) -> io::Result<()> {
         self.buf.clear();
         self.buf.push_str("\x1b[?2026h"); // synchronized output, where supported
         if (w, h) != self.size {
@@ -386,7 +450,11 @@ fn event_loop(m: &mut Model) -> io::Result<()> {
         std::thread::spawn(move || input_thread(tx, stop));
     }
     let (w, h) = terminal::size()?;
-    let mut rt = Runtime { tx, timers: Vec::new(), out: String::new() };
+    let mut rt = Runtime {
+        tx,
+        timers: Vec::new(),
+        out: String::new(),
+    };
     rt.exec(m.update(Msg::Size(w as i32, h as i32)));
     let init = m.init();
     rt.exec(init);
@@ -414,7 +482,9 @@ fn event_loop(m: &mut Model) -> io::Result<()> {
         // Fire due timers, then drain whatever else is queued before the next
         // frame, so bursts (resize storms) cost one render.
         let now = Instant::now();
-        let (due, later): (Vec<_>, Vec<_>) = std::mem::take(&mut rt.timers).into_iter().partition(|t| t.0 <= now);
+        let (due, later): (Vec<_>, Vec<_>) = std::mem::take(&mut rt.timers)
+            .into_iter()
+            .partition(|t| t.0 <= now);
         rt.timers = later;
         for (_, msg) in due {
             let c = m.update(msg);
@@ -438,7 +508,14 @@ mod tests {
 
     #[test]
     fn base64_matches_rfc4648() {
-        for (i, o) in [("", ""), ("f", "Zg=="), ("fo", "Zm8="), ("foo", "Zm9v"), ("foob", "Zm9vYg=="), ("foobar", "Zm9vYmFy")] {
+        for (i, o) in [
+            ("", ""),
+            ("f", "Zg=="),
+            ("fo", "Zm8="),
+            ("foo", "Zm9v"),
+            ("foob", "Zm9vYg=="),
+            ("foobar", "Zm9vYmFy"),
+        ] {
             assert_eq!(base64(i.as_bytes()), o);
         }
     }
@@ -450,7 +527,10 @@ mod tests {
         s.draw(&mut out, "a\nb\nc", 1, 3, "").unwrap();
         out.clear();
         s.draw(&mut out, "a\nX\nc", 1, 3, "").unwrap();
-        assert_eq!(String::from_utf8(out).unwrap(), "\x1b[?2026h\x1b[2;1HX\x1b[?2026l");
+        assert_eq!(
+            String::from_utf8(out).unwrap(),
+            "\x1b[?2026h\x1b[2;1HX\x1b[?2026l"
+        );
         // Within a line only the differing style runs are rewritten.
         let a = "\x1b[0;1mab\x1b[0;7m日x\x1b[0mcd\x1b[0m";
         let b = "\x1b[0;1mab\x1b[0;7m日y\x1b[0mcd\x1b[0m";

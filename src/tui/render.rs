@@ -1,9 +1,9 @@
 //! Frame composition: panel geometry, tabs, breadcrumbs, info and status
 //! lines.
 
-use super::canvas::{Canvas, Color, Depth, Style, Attr, BOLD, REVERSE, UNDERLINE};
+use super::canvas::{Attr, Canvas, Color, Depth, Style, BOLD, REVERSE, UNDERLINE};
 use super::model::{is_group, Hit, HitAct, Model, Profile};
-use super::{fmt_date, san, tw, trunc_left};
+use super::{fmt_date, san, trunc_left, tw};
 use crate::brand;
 use crate::inventory::{Kind, Node, Tree, FLAG_SCANNED, NO_NODE};
 use crate::textutil;
@@ -46,21 +46,46 @@ pub(crate) fn compute_geometry(w: i32, h: i32) -> (SizeClass, Geometry) {
     };
     let mut y = 0;
     if class >= SizeClass::Medium {
-        g.tabs = Rect { x: 0, y: 0, w, h: 1 };
+        g.tabs = Rect {
+            x: 0,
+            y: 0,
+            w,
+            h: 1,
+        };
         y = 1;
     }
     g.crumbs = Rect { x: 0, y, w, h: 1 };
     y += 1;
     let mut bottom = h - 1;
-    g.stat = Rect { x: 0, y: h - 1, w, h: 1 };
+    g.stat = Rect {
+        x: 0,
+        y: h - 1,
+        w,
+        h: 1,
+    };
     if class >= SizeClass::Medium {
-        g.info = Rect { x: 0, y: h - 2, w, h: 1 };
+        g.info = Rect {
+            x: 0,
+            y: h - 2,
+            w,
+            h: 1,
+        };
         bottom = h - 2;
     }
-    g.main = Rect { x: 0, y, w, h: bottom - y };
+    g.main = Rect {
+        x: 0,
+        y,
+        w,
+        h: bottom - y,
+    };
     if class == SizeClass::Large {
         let sw = 40.min(w / 5);
-        g.side = Rect { x: 0, y, w: sw, h: g.main.h };
+        g.side = Rect {
+            x: 0,
+            y,
+            w: sw,
+            h: g.main.h,
+        };
         (g.main.x, g.main.w) = (sw, w - sw);
     }
     (class, g)
@@ -114,7 +139,11 @@ impl Model {
 
     fn render_too_small(&self, cv: &mut Canvas) {
         let st = self.theme.muted();
-        let lines = ["Terminal too small".to_string(), format!("{}×{} — need {}×{}", self.w, self.h, MIN_W, MIN_H), "q quits".to_string()];
+        let lines = [
+            "Terminal too small".to_string(),
+            format!("{}×{} — need {}×{}", self.w, self.h, MIN_W, MIN_H),
+            "q quits".to_string(),
+        ];
         let y0 = 0.max((self.h - lines.len() as i32) / 2);
         for (i, l) in lines.iter().enumerate() {
             cv.text_centered(0, y0 + i as i32, self.w, l, st);
@@ -133,8 +162,18 @@ impl Model {
     fn paint_tabs(&mut self, tr: &Tree, cv: &mut Canvas, r: Rect) {
         let t = self.theme.clone();
         cv.fill(r, " ", t.header());
-        let badge = if t.ascii { format!(" {} ", brand::NAME) } else { format!(" ◧ {} ", brand::NAME) };
-        let mut x = cv.text(r.x, r.y, &badge, r.w, Style::new(t.text_on(t.accent), t.accent).with(BOLD | self.mono_rev()));
+        let badge = if t.ascii {
+            format!(" {} ", brand::NAME)
+        } else {
+            format!(" ◧ {} ", brand::NAME)
+        };
+        let mut x = cv.text(
+            r.x,
+            r.y,
+            &badge,
+            r.w,
+            Style::new(t.text_on(t.accent), t.accent).with(BOLD | self.mono_rev()),
+        );
         x += 1;
         let names: Vec<&'static str> = self.views.iter().map(|v| v.name()).collect();
         for (i, name) in names.iter().enumerate() {
@@ -148,7 +187,10 @@ impl Model {
                 break;
             }
             let w = cv.text(x, r.y, &label, r.w - x, st);
-            self.hits.push(Hit { r: Rect { x, y: r.y, w, h: 1 }, act: HitAct::SetView(i) });
+            self.hits.push(Hit {
+                r: Rect { x, y: r.y, w, h: 1 },
+                act: HitAct::SetView(i),
+            });
             x += w;
         }
         // Right-aligned chips.
@@ -177,7 +219,13 @@ impl Model {
                 break;
             }
             rx -= w;
-            cv.text(rx, r.y, &s, w, Style::new(t.text_on(*bg), *bg).with(BOLD | self.mono_rev()));
+            cv.text(
+                rx,
+                r.y,
+                &s,
+                w,
+                Style::new(t.text_on(*bg), *bg).with(BOLD | self.mono_rev()),
+            );
             rx -= 1;
         }
     }
@@ -206,10 +254,20 @@ impl Model {
             right = format!(" {} ", textutil::size_compact(size));
             rw = tw(&right);
         }
-        cv.text_right(r.x, r.y, r.w, &right, Style::new(t.header_fg, t.header_bg).with(BOLD));
+        cv.text_right(
+            r.x,
+            r.y,
+            r.w,
+            &right,
+            Style::new(t.header_fg, t.header_bg).with(BOLD),
+        );
 
         let sep = if t.ascii { " > " } else { " › " };
-        let segs: Vec<(u32, String)> = tr.ancestors(self.zoom).into_iter().map(|id| (id, san(&tr.node(id).name))).collect();
+        let segs: Vec<(u32, String)> = tr
+            .ancestors(self.zoom)
+            .into_iter()
+            .map(|id| (id, san(&tr.node(id).name)))
+            .collect();
         let avail = r.w - rw - 2;
         // Drop leading segments until the rest fits; keep at least the last.
         let total = |from: usize| {
@@ -231,17 +289,40 @@ impl Model {
         }
         let mut x = r.x + 1;
         if from > 0 {
-            x += cv.text(x, r.y, &format!("…{sep}"), avail, Style::new(t.muted, t.header_bg));
+            x += cv.text(
+                x,
+                r.y,
+                &format!("…{sep}"),
+                avail,
+                Style::new(t.muted, t.header_bg),
+            );
         }
         for i in from..segs.len() {
             if i > from {
-                x += cv.text(x, r.y, sep, r.x + 1 + avail - x, Style::new(t.faint, t.header_bg));
+                x += cv.text(
+                    x,
+                    r.y,
+                    sep,
+                    r.x + 1 + avail - x,
+                    Style::new(t.faint, t.header_bg),
+                );
             }
             let last = i == segs.len() - 1;
-            let st = if last { Style::new(t.fg, t.header_bg).with(BOLD) } else { Style::new(t.muted, t.header_bg) };
-            let s = if last { trunc_left(&segs[i].1, 1.max(r.x + 1 + avail - x)) } else { segs[i].1.clone() };
+            let st = if last {
+                Style::new(t.fg, t.header_bg).with(BOLD)
+            } else {
+                Style::new(t.muted, t.header_bg)
+            };
+            let s = if last {
+                trunc_left(&segs[i].1, 1.max(r.x + 1 + avail - x))
+            } else {
+                segs[i].1.clone()
+            };
             let w = cv.text(x, r.y, &s, r.x + 1 + avail - x, st);
-            self.hits.push(Hit { r: Rect { x, y: r.y, w, h: 1 }, act: HitAct::ZoomTo(segs[i].0) });
+            self.hits.push(Hit {
+                r: Rect { x, y: r.y, w, h: 1 },
+                act: HitAct::ZoomTo(segs[i].0),
+            });
             x += w;
         }
     }
@@ -279,9 +360,14 @@ impl Model {
             return "Nothing selected".into();
         }
         let n = tr.node(id);
-        let mut parts = vec![format!("▸ {}", san(&n.name)), textutil::size(self.size_of(tr, id))];
+        let mut parts = vec![
+            format!("▸ {}", san(&n.name)),
+            textutil::size(self.size_of(tr, id)),
+        ];
         if n.parent != NO_NODE {
-            parts.push(textutil::percent(self.size_of(tr, id), self.size_of(tr, n.parent)) + " of parent");
+            parts.push(
+                textutil::percent(self.size_of(tr, id), self.size_of(tr, n.parent)) + " of parent",
+            );
         }
         if n.is_dir() {
             parts.push(textutil::count(n.files as i64) + " files");
@@ -308,8 +394,18 @@ impl Model {
     fn paint_status(&mut self, tr: &Tree, cv: &mut Canvas, r: Rect, class: SizeClass) {
         let t = self.theme.clone();
         cv.fill(r, " ", t.status());
-        let help = if class == SizeClass::Small { " ? " } else { " ? help " };
-        let hw = cv.text(r.x + r.w - tw(help), r.y, help, r.w, Style::new(t.muted, t.status_bg));
+        let help = if class == SizeClass::Small {
+            " ? "
+        } else {
+            " ? help "
+        };
+        let hw = cv.text(
+            r.x + r.w - tw(help),
+            r.y,
+            help,
+            r.w,
+            Style::new(t.muted, t.status_bg),
+        );
         let avail = r.w - hw - 1;
         if !self.toast.is_empty() {
             cv.text(r.x + 1, r.y, &self.toast, avail - 1, self.toast_style);
@@ -320,8 +416,15 @@ impl Model {
         let files = st.files + st.symlinks + st.others;
         let mut parts: Vec<(String, Color)> = Vec::new();
         if self.scanning {
-            let ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis();
-            let frame = if t.ascii { "*" } else { SPINNER[(ms / 100) as usize % SPINNER.len()] };
+            let ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis();
+            let frame = if t.ascii {
+                "*"
+            } else {
+                SPINNER[(ms / 100) as usize % SPINNER.len()]
+            };
             parts.push((format!("{frame} scanning"), t.accent));
         } else if st.cancelled {
             parts.push(("✗ cancelled".into(), t.warn));
@@ -334,8 +437,15 @@ impl Model {
         parts.push((textutil::size(root.total(self.size_mode)), t.status_fg));
         if self.scanning {
             let el = st.elapsed();
-            let p = self.scanner.as_ref().map(|s| s.progress()).unwrap_or_default();
-            parts.push((textutil::count((p.entries as f64 / el.as_secs_f64().max(0.001)) as i64) + "/s", t.status_fg));
+            let p = self
+                .scanner
+                .as_ref()
+                .map(|s| s.progress())
+                .unwrap_or_default();
+            parts.push((
+                textutil::count((p.entries as f64 / el.as_secs_f64().max(0.001)) as i64) + "/s",
+                t.status_fg,
+            ));
             if class != SizeClass::Small {
                 parts.push((format!("{} workers", p.workers), t.muted));
                 parts.push((format!("queue {}", textutil::count(p.pending)), t.muted));

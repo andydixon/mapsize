@@ -43,7 +43,10 @@ mod tests {
             let n = t.node_mut(id);
             n.size = size;
             n.alloc = size;
-            n.mtime = (SystemTime::now() - age).duration_since(UNIX_EPOCH).unwrap().as_nanos() as i64;
+            n.mtime = (SystemTime::now() - age)
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos() as i64;
             n.cat = category_for(&ext(name.as_bytes()), false, false);
         };
         add(vms, "ubuntu.qcow2", 80 << 30, 400 * DAY);
@@ -58,7 +61,10 @@ mod tests {
     fn names(tr: &Tree, q: &str) -> HashSet<String> {
         let pq = parse(q, SystemTime::now()).unwrap_or_else(|e| panic!("parse({q:?}): {e}"));
         let r = apply(&Cancel::new(), tr, Arc::new(pq), SizeMode::Logical).unwrap();
-        (0..tr.len() as NodeId).filter(|&i| r.is_match(i)).map(|i| tr.node(i).name_str().into_owned()).collect()
+        (0..tr.len() as NodeId)
+            .filter(|&i| r.is_match(i))
+            .map(|i| tr.node(i).name_str().into_owned())
+            .collect()
     }
 
     #[test]
@@ -70,7 +76,10 @@ mod tests {
             ("size > 1GB", &["vms", "ubuntu.qcow2", "win.vmdk"]),
             ("size > 1GB AND type = file", &["ubuntu.qcow2", "win.vmdk"]),
             ("ext = qcow2", &["ubuntu.qcow2"]),
-            ("size > 500MB AND ext IN (iso,qcow2,vmdk)", &["ubuntu.qcow2", "win.vmdk", "blob.iso"]),
+            (
+                "size > 500MB AND ext IN (iso,qcow2,vmdk)",
+                &["ubuntu.qcow2", "win.vmdk", "blob.iso"],
+            ),
             ("path contains cache", &["cache", "blob.iso", "x.tmp"]),
             ("age > 365d", &["ubuntu.qcow2"]),
             ("NOT type = dir AND size < 1k", &["notes.txt", "x.tmp"]),
@@ -91,16 +100,32 @@ mod tests {
         let tr = tree();
         let q = parse("name = vms OR ext = qcow2", SystemTime::now()).unwrap();
         let r = apply(&Cancel::new(), &tr, Arc::new(q), SizeMode::Logical).unwrap();
-        assert_eq!(r.total, tr.node(1).tot_size, "matching dir must not double count matching child");
+        assert_eq!(
+            r.total,
+            tr.node(1).tot_size,
+            "matching dir must not double count matching child"
+        );
     }
 
     #[test]
     fn parse_errors() {
         for q in [
-            "", "size >", "size > banana", "(ext = iso", "ext = iso)", "size contains 5",
-            "name matches '['", "type = blob", "'unterminated", "a & b", "category = nope",
+            "",
+            "size >",
+            "size > banana",
+            "(ext = iso",
+            "ext = iso)",
+            "size contains 5",
+            "name matches '['",
+            "type = blob",
+            "'unterminated",
+            "a & b",
+            "category = nope",
         ] {
-            assert!(parse(q, SystemTime::now()).is_err(), "parse({q:?}) should fail");
+            assert!(
+                parse(q, SystemTime::now()).is_err(),
+                "parse({q:?}) should fail"
+            );
         }
     }
 
@@ -109,10 +134,20 @@ mod tests {
         let tr = tree();
         assert_eq!(names(&tr, "modified < 2000-01-01"), HashSet::new());
         assert_eq!(names(&tr, "modified > '2000-01-01 9:30'").len(), 5);
-        assert_eq!(names(&tr, "modified > 2000-01-01T00:00:00.5+01:00").len(), 5);
+        assert_eq!(
+            names(&tr, "modified > 2000-01-01T00:00:00.5+01:00").len(),
+            5
+        );
         assert_eq!(names(&tr, "modified > 30d").len(), 4);
-        for bad in ["modified > 2024-02-30", "modified > 2024-01-31T10:00", "ext = 'a['"] {
-            assert!(parse(bad, SystemTime::now()).is_ok() == bad.ends_with("10:00"), "{bad}");
+        for bad in [
+            "modified > 2024-02-30",
+            "modified > 2024-01-31T10:00",
+            "ext = 'a['",
+        ] {
+            assert!(
+                parse(bad, SystemTime::now()).is_ok() == bad.ends_with("10:00"),
+                "{bad}"
+            );
         }
         assert!(names(&tr, "[").is_empty()); // malformed bare glob matches nothing
         assert!(names(&tr, "voilà\u{a0}x").is_empty()); // Go's lexer hangs on byte 0xA0
@@ -120,7 +155,13 @@ mod tests {
 
     #[test]
     fn parse_size_units() {
-        for (input, want) in [("1GB", 1_000_000_000), ("1GiB", 1 << 30), ("1.5k", 1536), ("500MB", 500_000_000), ("10", 10)] {
+        for (input, want) in [
+            ("1GB", 1_000_000_000),
+            ("1GiB", 1 << 30),
+            ("1.5k", 1536),
+            ("500MB", 500_000_000),
+            ("10", 10),
+        ] {
             assert_eq!(parse_size(input), Ok(want), "{input}");
         }
     }

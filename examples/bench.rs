@@ -25,25 +25,45 @@ fn bench<R>(name: &str, mut f: impl FnMut(u64) -> R) {
 }
 
 fn main() {
-    let items: Vec<Item> = (0..300).map(|i| Item { id: i, size: (1 + i * i) as f64 }).collect();
-    let bounds = Rect { x: 0, y: 0, w: 200, h: 60 };
+    let items: Vec<Item> = (0..300)
+        .map(|i| Item {
+            id: i,
+            size: (1 + i * i) as f64,
+        })
+        .collect();
+    let bounds = Rect {
+        x: 0,
+        y: 0,
+        w: 200,
+        h: 60,
+    };
     bench("treemap/Squarify(300)", |_| {
         black_box(treemap::squarify(black_box(&items), bounds));
     });
     let blocks = treemap::squarify(&items, bounds);
     bench("treemap/Neighbour(300)", |_| {
-        black_box(treemap::neighbour(black_box(&blocks), 150, Direction::Right));
+        black_box(treemap::neighbour(
+            black_box(&blocks),
+            150,
+            Direction::Right,
+        ));
     });
 
     let t0 = Instant::now();
     let tree = Arc::new(RwLock::new(big_tree()));
-    println!("big tree: {} nodes built in {:.2?}", tree.read().unwrap().len(), t0.elapsed());
+    println!(
+        "big tree: {} nodes built in {:.2?}",
+        tree.read().unwrap().len(),
+        t0.elapsed()
+    );
 
     let mut m = BenchModel::new(tree.clone(), 200, 60);
     bench("tui/BigColdFrame", |_| m.cold_frame());
     let mut m = BenchModel::new(tree.clone(), 200, 60);
     m.cold_frame();
-    bench("tui/BigResize", |i| m.resize(150 + (i % 100) as u16, 40 + (i % 30) as u16));
+    bench("tui/BigResize", |i| {
+        m.resize(150 + (i % 100) as u16, 40 + (i % 30) as u16)
+    });
     let mut m = BenchModel::new(tree.clone(), 200, 60);
     m.zoom_to_child_named(b"flat");
     bench("tui/BigFlatDirCold", |_| m.cold_frame());
