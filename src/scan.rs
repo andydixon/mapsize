@@ -38,7 +38,9 @@ pub fn parse_follow(s: &str) -> Result<FollowMode, String> {
         "none" | "" => Ok(FollowMode::None),
         "same-filesystem" | "same-fs" => Ok(FollowMode::SameFs),
         "all" => Ok(FollowMode::All),
-        _ => Err(format!("invalid --follow-symlinks {s:?} (want none, same-filesystem or all)")),
+        _ => Err(format!(
+            "invalid --follow-symlinks {s:?} (want none, same-filesystem or all)"
+        )),
     }
 }
 
@@ -51,7 +53,9 @@ pub fn workers(mode: &str) -> Result<usize, String> {
         "aggressive" => Ok((8 * cpu).clamp(4, 64)),
         _ => match mode.trim().parse::<usize>() {
             Ok(n) if (1..=1024).contains(&n) => Ok(n),
-            _ => Err(format!("invalid workers {mode:?} (conservative, balanced, aggressive or 1-1024)")),
+            _ => Err(format!(
+                "invalid workers {mode:?} (conservative, balanced, aggressive or 1-1024)"
+            )),
         },
     }
 }
@@ -123,7 +127,10 @@ impl Scanner {
     }
 
     pub fn is_done(&self) -> bool {
-        matches!(self.done.try_recv(), Err(crossbeam_channel::TryRecvError::Disconnected))
+        matches!(
+            self.done.try_recv(),
+            Err(crossbeam_channel::TryRecvError::Disconnected)
+        )
     }
 
     /// Blocks until the scan is done.
@@ -235,7 +242,12 @@ pub fn start(root: &[u8], mut opts: Options, cancel: Cancel) -> io::Result<Scann
         t.stats.complete = true;
         t.stats.end = Some(SystemTime::now());
         drop(done_tx);
-        return Ok(Scanner { tree: Arc::new(RwLock::new(t)), counters, workers: opts.workers, done });
+        return Ok(Scanner {
+            tree: Arc::new(RwLock::new(t)),
+            counters,
+            workers: opts.workers,
+            done,
+        });
     }
     t.stats.dirs = 1;
     // Loop detection needs inode identity; without it symlinks are not
@@ -245,7 +257,11 @@ pub fn start(root: &[u8], mut opts: Options, cancel: Cancel) -> io::Result<Scann
         t.stats.follow = "none (no inode identity on this platform)".into();
     }
     let visited = (opts.follow != FollowMode::None).then(|| HashSet::from([(m.dev, m.ino)]));
-    let path_excludes = opts.excludes.iter().map(|p| (p.contains(['/', '\\']), p.as_bytes().to_vec())).collect();
+    let path_excludes = opts
+        .excludes
+        .iter()
+        .map(|p| (p.contains(['/', '\\']), p.as_bytes().to_vec()))
+        .collect();
     let tree = Arc::new(RwLock::new(t));
     let workers = opts.workers;
     counters.pending.store(1, Ordering::Relaxed);
@@ -259,11 +275,18 @@ pub fn start(root: &[u8], mut opts: Options, cancel: Cancel) -> io::Result<Scann
         links: HashSet::new(),
         visited,
     };
-    std::thread::Builder::new().name("scan-controller".into()).spawn(move || {
-        guard(|| c.run(cancel));
-        drop(done_tx);
-    })?;
-    Ok(Scanner { tree, counters, workers, done })
+    std::thread::Builder::new()
+        .name("scan-controller".into())
+        .spawn(move || {
+            guard(|| c.run(cancel));
+            drop(done_tx);
+        })?;
+    Ok(Scanner {
+        tree,
+        counters,
+        workers,
+        done,
+    })
 }
 
 /// Bounds how long the controller holds the write lock, so the UI's read
@@ -290,11 +313,23 @@ fn worker(cancel: &Cancel, jobs: Receiver<Arc<Job>>, results: Sender<ScanResult>
                 if cancel.is_cancelled() {
                     return Err(ReadErr::Cancelled);
                 }
-                results.send(ScanResult { job: j.clone(), entries: ms, is_final: false, err: None }).map_err(|_| ReadErr::Cancelled)
+                results
+                    .send(ScanResult {
+                        job: j.clone(),
+                        entries: ms,
+                        is_final: false,
+                        err: None,
+                    })
+                    .map_err(|_| ReadErr::Cancelled)
             })
             .err()
         };
-        let _ = results.send(ScanResult { job: j, entries: Vec::new(), is_final: true, err });
+        let _ = results.send(ScanResult {
+            job: j,
+            entries: Vec::new(),
+            is_final: true,
+            err,
+        });
     }
 }
 
@@ -304,7 +339,12 @@ impl Controller {
         let (res_tx, res_rx) = crossbeam_channel::bounded::<ScanResult>(self.opts.result_buf);
         let mut handles = Vec::with_capacity(self.opts.workers);
         for i in 0..self.opts.workers {
-            let (jobs, results, cancel, chunk) = (jobs_rx.clone(), res_tx.clone(), cancel.clone(), self.opts.chunk_size);
+            let (jobs, results, cancel, chunk) = (
+                jobs_rx.clone(),
+                res_tx.clone(),
+                cancel.clone(),
+                self.opts.chunk_size,
+            );
             handles.push(
                 std::thread::Builder::new()
                     .name(format!("scan-worker-{i}"))
@@ -332,7 +372,8 @@ impl Controller {
             let op = sel.select();
             let i = op.index();
             if Some(i) == send_i {
-                op.send(&jobs_tx, next.take().unwrap()).expect("workers alive");
+                op.send(&jobs_tx, next.take().unwrap())
+                    .expect("workers alive");
                 self.head += 1;
                 if self.head > 4096 && self.head * 2 > self.pending.len() {
                     self.pending.drain(..self.head);
@@ -366,7 +407,9 @@ impl Controller {
                 next = None;
             }
             self.counters.inflight.store(inflight, Ordering::Relaxed);
-            self.counters.pending.store((self.pending.len() - self.head) as i64, Ordering::Relaxed);
+            self.counters
+                .pending
+                .store((self.pending.len() - self.head) as i64, Ordering::Relaxed);
         }
         drop(jobs_tx);
         for h in handles {
@@ -391,7 +434,13 @@ impl Controller {
     fn make_job(&self, (id, dev): (NodeId, u64)) -> Arc<Job> {
         let path = self.tree.read().unwrap().path_bytes(id);
         let (in_cache, in_log) = inv::path_hints(&path);
-        Arc::new(Job { id, path, dev, in_cache, in_log })
+        Arc::new(Job {
+            id,
+            path,
+            dev,
+            in_cache,
+            in_log,
+        })
     }
 
     /// Merges one result into the tree. Reports whether the result completed
@@ -399,7 +448,9 @@ impl Controller {
     fn apply(&mut self, t: &mut Tree, r: ScanResult) -> bool {
         let j = &*r.job;
         let mut d = Delta::default();
-        self.counters.entries.fetch_add(r.entries.len() as i64, Ordering::Relaxed);
+        self.counters
+            .entries
+            .fetch_add(r.entries.len() as i64, Ordering::Relaxed);
         for m in r.entries {
             self.add_entry(t, j, m, &mut d);
         }
@@ -413,7 +464,12 @@ impl Controller {
                 }
                 Some(ReadErr::Io(e)) => {
                     dn.flags |= inv::FLAG_ERROR | inv::FLAG_INCOMPLETE;
-                    t.stats.add_error(ErrorRecord { node: j.id, kind: inv::classify(&e), msg: format!("open: {}", err_msg(&e)), ..Default::default() });
+                    t.stats.add_error(ErrorRecord {
+                        node: j.id,
+                        kind: inv::classify(&e),
+                        msg: format!("open: {}", err_msg(&e)),
+                        ..Default::default()
+                    });
                     d.errors += 1;
                 }
             }
@@ -427,7 +483,9 @@ impl Controller {
     fn excluded(&self, path: &[u8], name: &[u8]) -> bool {
         self.excludes.iter().any(|(is_path, p)| {
             if *is_path {
-                path == p.as_slice() || path.starts_with(p) && path.get(p.len()) == Some(&b'/') || platform::glob_match(p, path)
+                path == p.as_slice()
+                    || path.starts_with(p) && path.get(p.len()) == Some(&b'/')
+                    || platform::glob_match(p, path)
             } else {
                 platform::glob_match(p, name)
             }
@@ -438,7 +496,12 @@ impl Controller {
         if let Some(e) = &m.err {
             let k = inv::classify(e);
             if k == inv::ErrKind::Vanished {
-                t.stats.add_error(ErrorRecord { node: j.id, name: m.name, kind: k, msg: "vanished between listing and stat".into() });
+                t.stats.add_error(ErrorRecord {
+                    node: j.id,
+                    name: m.name,
+                    kind: k,
+                    msg: "vanished between listing and stat".into(),
+                });
                 d.errors += 1;
                 return;
             }
@@ -446,7 +509,12 @@ impl Controller {
             let n = t.node_mut(id);
             n.flags |= inv::FLAG_ERROR;
             n.errors = 1;
-            t.stats.add_error(ErrorRecord { node: id, kind: k, msg: format!("stat: {}", err_msg(e)), ..Default::default() });
+            t.stats.add_error(ErrorRecord {
+                node: id,
+                kind: k,
+                msg: format!("stat: {}", err_msg(e)),
+                ..Default::default()
+            });
             d.errors += 1;
             d.files += 1;
             t.stats.others += 1;
@@ -472,7 +540,12 @@ impl Controller {
                     t.stats.broken_links += 1;
                     broken = true;
                 }
-                Ok(tm) if platform::mode::is_dir(tm.mode) && tm.has_ino && (self.opts.follow == FollowMode::All || self.opts.follow == FollowMode::SameFs && tm.dev == j.dev) => {
+                Ok(tm)
+                    if platform::mode::is_dir(tm.mode)
+                        && tm.has_ino
+                        && (self.opts.follow == FollowMode::All
+                            || self.opts.follow == FollowMode::SameFs && tm.dev == j.dev) =>
+                {
                     target = Some(tm);
                     kind = Kind::Dir;
                 }
@@ -596,7 +669,11 @@ pub(crate) mod tests {
     impl TempDir {
         pub fn new(tag: &str) -> TempDir {
             static N: AtomicI64 = AtomicI64::new(0);
-            let p = std::env::temp_dir().join(format!("mapsize-{tag}-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed)));
+            let p = std::env::temp_dir().join(format!(
+                "mapsize-{tag}-{}-{}",
+                std::process::id(),
+                N.fetch_add(1, Ordering::Relaxed)
+            ));
             std::fs::create_dir_all(&p).unwrap();
             TempDir(p)
         }
@@ -609,7 +686,14 @@ pub(crate) mod tests {
 
     /// Creates a fan-out tree: (files, dirs, bytes).
     pub fn mk_tree(dir: &Path, fanout: usize, depth: usize, files: usize) -> (i64, i64, i64) {
-        fn rec(dir: &Path, d: usize, fanout: usize, depth: usize, files: usize, acc: &mut (i64, i64, i64)) {
+        fn rec(
+            dir: &Path,
+            d: usize,
+            fanout: usize,
+            depth: usize,
+            files: usize,
+            acc: &mut (i64, i64, i64),
+        ) {
             for i in 0..files {
                 let sz = (i + 1) * 100;
                 std::fs::write(dir.join(format!("f{i}.txt")), vec![0u8; sz]).unwrap();
@@ -633,23 +717,38 @@ pub(crate) mod tests {
 
     pub fn run_scan(root: &Path, o: Options) -> Tree {
         let s = start(root.as_os_str().as_bytes(), o, Cancel::new()).unwrap();
-        s.done().recv_timeout(std::time::Duration::from_secs(60)).expect_err("scan did not finish (deadlock?)");
+        s.done()
+            .recv_timeout(std::time::Duration::from_secs(60))
+            .expect_err("scan did not finish (deadlock?)");
         let t = s.tree.read().unwrap().clone();
         t
     }
 
     fn totals(t: &Tree) -> Vec<[i64; 4]> {
-        (0..t.len() as NodeId).map(|i| t.node(i)).map(|n| [n.tot_size, n.tot_alloc, n.files as i64, n.dirs as i64]).collect()
+        (0..t.len() as NodeId)
+            .map(|i| t.node(i))
+            .map(|n| [n.tot_size, n.tot_alloc, n.files as i64, n.dirs as i64])
+            .collect()
     }
 
     #[test]
     fn counts_and_aggregates() {
         let root = TempDir::new("scan");
         let (nf, nd, bytes) = mk_tree(&root.0, 3, 3, 4);
-        let mut t = run_scan(&root.0, Options { workers: 4, ..Default::default() });
+        let mut t = run_scan(
+            &root.0,
+            Options {
+                workers: 4,
+                ..Default::default()
+            },
+        );
         let r = t.node(0);
         assert_eq!((r.files as i64, r.dirs as i64), (nf, nd));
-        let dir_bytes: i64 = (0..t.len() as NodeId).map(|i| t.node(i)).filter(|n| n.is_dir()).map(|n| n.size).sum();
+        let dir_bytes: i64 = (0..t.len() as NodeId)
+            .map(|i| t.node(i))
+            .filter(|n| n.is_dir())
+            .map(|n| n.size)
+            .sum();
         assert_eq!(r.tot_size, bytes + dir_bytes);
         assert!(t.stats.complete && !t.stats.incomplete());
         for i in 0..t.len() as NodeId {
@@ -661,7 +760,11 @@ pub(crate) mod tests {
         }
         let before = totals(&t);
         t.recompute();
-        assert_eq!(before, totals(&t), "incremental aggregates differ from recompute");
+        assert_eq!(
+            before,
+            totals(&t),
+            "incremental aggregates differ from recompute"
+        );
     }
 
     #[test]
@@ -669,8 +772,22 @@ pub(crate) mod tests {
         let root = TempDir::new("bp");
         let (nf, nd, _) = mk_tree(&root.0, 6, 4, 3);
         for w in [1, 2, 16] {
-            let t = run_scan(&root.0, Options { workers: w, job_buffer: 1, result_buf: 1, chunk_size: 1, apply_batch: 1, ..Default::default() });
-            assert_eq!((t.node(0).files as i64, t.node(0).dirs as i64), (nf, nd), "workers={w}");
+            let t = run_scan(
+                &root.0,
+                Options {
+                    workers: w,
+                    job_buffer: 1,
+                    result_buf: 1,
+                    chunk_size: 1,
+                    apply_batch: 1,
+                    ..Default::default()
+                },
+            );
+            assert_eq!(
+                (t.node(0).files as i64, t.node(0).dirs as i64),
+                (nf, nd),
+                "workers={w}"
+            );
         }
     }
 
@@ -679,9 +796,22 @@ pub(crate) mod tests {
         let root = TempDir::new("cancel");
         mk_tree(&root.0, 8, 3, 2);
         let c = Cancel::new();
-        let s = start(root.0.as_os_str().as_bytes(), Options { workers: 2, job_buffer: 1, result_buf: 1, chunk_size: 1, ..Default::default() }, c.clone()).unwrap();
+        let s = start(
+            root.0.as_os_str().as_bytes(),
+            Options {
+                workers: 2,
+                job_buffer: 1,
+                result_buf: 1,
+                chunk_size: 1,
+                ..Default::default()
+            },
+            c.clone(),
+        )
+        .unwrap();
         c.cancel();
-        s.done().recv_timeout(std::time::Duration::from_secs(10)).expect_err("cancel did not stop scan");
+        s.done()
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect_err("cancel did not stop scan");
         let t = s.tree.read().unwrap();
         assert!(t.stats.cancelled && t.stats.incomplete());
     }
@@ -696,12 +826,21 @@ pub(crate) mod tests {
         std::os::unix::fs::symlink("../a", a.join("self")).unwrap();
         std::os::unix::fs::symlink("nowhere", root.0.join("broken")).unwrap();
         for f in [FollowMode::None, FollowMode::SameFs, FollowMode::All] {
-            let t = run_scan(&root.0, Options { workers: 4, follow: f, ..Default::default() });
+            let t = run_scan(
+                &root.0,
+                Options {
+                    workers: 4,
+                    follow: f,
+                    ..Default::default()
+                },
+            );
             let r = t.node(0);
             assert!(r.files > 0 && r.tot_size > 5000, "{f:?}");
             assert_eq!(t.stats.broken_links, 1);
             assert!(f == FollowMode::None || t.stats.loops_skipped > 0);
-            let count = (0..t.len() as NodeId).filter(|&i| &*t.node(i).name == b"x").count();
+            let count = (0..t.len() as NodeId)
+                .filter(|&i| &*t.node(i).name == b"x")
+                .count();
             assert_eq!(count, 1, "{f:?}");
         }
     }
@@ -713,7 +852,13 @@ pub(crate) mod tests {
         std::fs::write(&p, vec![0u8; 100000]).unwrap();
         std::fs::create_dir(root.0.join("d")).unwrap();
         std::fs::hard_link(&p, root.0.join("d/link")).unwrap();
-        let t = run_scan(&root.0, Options { workers: 2, ..Default::default() });
+        let t = run_scan(
+            &root.0,
+            Options {
+                workers: 2,
+                ..Default::default()
+            },
+        );
         assert_eq!(t.stats.hardlink_dups, 1);
         assert!(t.node(0).tot_size < 200000);
     }
@@ -729,7 +874,13 @@ pub(crate) mod tests {
         std::fs::create_dir(&locked).unwrap();
         std::fs::write(locked.join("f"), b"x").unwrap();
         std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0)).unwrap();
-        let t = run_scan(&root.0, Options { workers: 2, ..Default::default() });
+        let t = run_scan(
+            &root.0,
+            Options {
+                workers: 2,
+                ..Default::default()
+            },
+        );
         std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
         assert_eq!(t.stats.err_counts[inv::ErrKind::Permission as usize], 1);
         assert!(t.stats.incomplete());
@@ -745,18 +896,38 @@ pub(crate) mod tests {
         std::fs::write(root.0.join("keep/b.txt"), b"x").unwrap();
         std::fs::write(root.0.join("skip/c.txt"), b"x").unwrap();
         let skip = root.0.join("skip").to_string_lossy().into_owned();
-        let t = run_scan(&root.0, Options { workers: 2, excludes: vec!["*.tmp".into(), skip], ..Default::default() });
+        let t = run_scan(
+            &root.0,
+            Options {
+                workers: 2,
+                excludes: vec!["*.tmp".into(), skip],
+                ..Default::default()
+            },
+        );
         assert_eq!((t.stats.excluded, t.node(0).files), (2, 1));
     }
 
     #[test]
     fn hostile_names_preserved() {
         let root = TempDir::new("names");
-        let names: [&[u8]; 6] = ["日本語.txt".as_bytes(), "emoji-🎉.png".as_bytes(), b"esc\x1b[31mred", b"nl\nname", b"sp ace", b"bad\xffutf8"];
+        let names: [&[u8]; 6] = [
+            "日本語.txt".as_bytes(),
+            "emoji-🎉.png".as_bytes(),
+            b"esc\x1b[31mred",
+            b"nl\nname",
+            b"sp ace",
+            b"bad\xffutf8",
+        ];
         for n in names {
             std::fs::write(root.0.join(std::ffi::OsStr::from_bytes(n)), b"x").unwrap();
         }
-        let t = run_scan(&root.0, Options { workers: 2, ..Default::default() });
+        let t = run_scan(
+            &root.0,
+            Options {
+                workers: 2,
+                ..Default::default()
+            },
+        );
         let got: HashSet<&[u8]> = t.children(0).map(|(_, n)| &*n.name).collect();
         for n in names {
             assert!(got.contains(n), "missing {n:?}");

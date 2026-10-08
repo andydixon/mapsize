@@ -37,16 +37,35 @@ pub struct Config {
 impl Config {
     pub fn new(settings: Settings) -> Config {
         Config {
-            paths: Vec::new(), scan_opts: Default::default(), no_ui: false, json: false, csv: false, depth: -1,
-            top: 0, largest_files: 0, save: String::new(), load: String::new(), compare: None, duplicates: false,
-            read_only: false, theme: settings.theme.clone(), size_mode: SizeMode::Allocated, mouse: settings.mouse,
-            color: "auto".into(), settings,
+            paths: Vec::new(),
+            scan_opts: Default::default(),
+            no_ui: false,
+            json: false,
+            csv: false,
+            depth: -1,
+            top: 0,
+            largest_files: 0,
+            save: String::new(),
+            load: String::new(),
+            compare: None,
+            duplicates: false,
+            read_only: false,
+            theme: settings.theme.clone(),
+            size_mode: SizeMode::Allocated,
+            mouse: settings.mouse,
+            color: "auto".into(),
+            settings,
         }
     }
 
     /// Whether any non-interactive output was requested.
     pub fn report(&self) -> bool {
-        self.no_ui || self.json || self.csv || self.top > 0 || self.largest_files > 0 || self.duplicates
+        self.no_ui
+            || self.json
+            || self.csv
+            || self.top > 0
+            || self.largest_files > 0
+            || self.duplicates
     }
 }
 
@@ -63,9 +82,17 @@ pub fn run(cfg: Config) -> Result<(), Error> {
 
 /// Begins a scan (or loads a snapshot). The scanner is None when the tree
 /// came from a snapshot.
-fn start_source(cancel: Cancel, load: &str, paths: &[String], opts: &scan::Options) -> Result<(Option<Scanner>, Arc<RwLock<Tree>>), Error> {
+fn start_source(
+    cancel: Cancel,
+    load: &str,
+    paths: &[String],
+    opts: &scan::Options,
+) -> Result<(Option<Scanner>, Arc<RwLock<Tree>>), Error> {
     if !load.is_empty() {
-        return Ok((None, Arc::new(RwLock::new(snapshot::load_file(Path::new(load))?))));
+        return Ok((
+            None,
+            Arc::new(RwLock::new(snapshot::load_file(Path::new(load))?)),
+        ));
     }
     let root = paths.first().map_or(".", |s| s.as_str());
     let s = scan::start(root.as_bytes(), opts.clone(), cancel)?;
@@ -117,7 +144,12 @@ fn run_report(cfg: Config) -> Result<(), Error> {
     }
     if cfg.largest_files > 0 {
         let m = cfg.size_mode;
-        let ids = t.top(t.root(), cfg.largest_files, |n| n.kind == Kind::File && n.flags & FLAG_HARDLINK_DUP == 0, |n| n.own(m));
+        let ids = t.top(
+            t.root(),
+            cfg.largest_files,
+            |n| n.kind == Kind::File && n.flags & FLAG_HARDLINK_DUP == 0,
+            |n| n.own(m),
+        );
         export::table(&mut out, &t, &ids, m)?;
         writeln!(out)?;
     }
@@ -162,8 +194,14 @@ fn wait_with_progress(s: &Scanner, cancel: &Cancel) {
 fn run_tui(cfg: Config) -> Result<(), Error> {
     let (load, paths, opts) = (cfg.load.clone(), cfg.paths.clone(), cfg.scan_opts.clone());
     tui::run(tui::Options {
-        read_only: cfg.read_only, theme: cfg.theme, size_mode: cfg.size_mode, mouse: cfg.mouse, color: cfg.color,
-        save: cfg.save, settings: cfg.settings, diff: None,
+        read_only: cfg.read_only,
+        theme: cfg.theme,
+        size_mode: cfg.size_mode,
+        mouse: cfg.mouse,
+        color: cfg.color,
+        save: cfg.save,
+        settings: cfg.settings,
+        diff: None,
         start: Arc::new(move |c| start_source(c, &load, &paths, &opts)),
     })
 }
@@ -176,8 +214,14 @@ fn run_compare(cfg: Config) -> Result<(), Error> {
     if !cfg.report() {
         let tree = Arc::new(RwLock::new(nw));
         return tui::run(tui::Options {
-            read_only: true, theme: cfg.theme, size_mode: cfg.size_mode, mouse: cfg.mouse, color: cfg.color,
-            save: String::new(), settings: cfg.settings, diff: Some(d),
+            read_only: true,
+            theme: cfg.theme,
+            size_mode: cfg.size_mode,
+            mouse: cfg.mouse,
+            color: cfg.color,
+            save: String::new(),
+            settings: cfg.settings,
+            diff: Some(d),
             start: Arc::new(move |_| Ok((None, tree.clone()))),
         });
     }
@@ -185,23 +229,54 @@ fn run_compare(cfg: Config) -> Result<(), Error> {
     let m = cfg.size_mode;
     let mut out = std::io::stdout().lock();
     let (ro, rn) = (d.old.node(0), nw.node(0));
-    writeln!(out, "{} → {}", textutil::sanitize(&d.old.stats.from_snapshot), textutil::sanitize(&nw.stats.from_snapshot))?;
-    writeln!(out, "Total {} → {} ({})\n", textutil::size(ro.total(m)), textutil::size(rn.total(m)), textutil::signed_size(rn.total(m) - ro.total(m)))?;
+    writeln!(
+        out,
+        "{} → {}",
+        textutil::sanitize(&d.old.stats.from_snapshot),
+        textutil::sanitize(&nw.stats.from_snapshot)
+    )?;
+    writeln!(
+        out,
+        "Total {} → {} ({})\n",
+        textutil::size(ro.total(m)),
+        textutil::size(rn.total(m)),
+        textutil::signed_size(rn.total(m) - ro.total(m))
+    )?;
     for c in d.changes(&nw, k, m) {
-        writeln!(out, "{:<10} {:>14}  {}", c.status.name(), textutil::signed_size(c.delta), textutil::sanitize(&c.path))?;
+        writeln!(
+            out,
+            "{:<10} {:>14}  {}",
+            c.status.name(),
+            textutil::signed_size(c.delta),
+            textutil::sanitize(&c.path)
+        )?;
     }
     Ok(())
 }
 
 fn run_duplicates(out: &mut dyn Write, cancel: &Cancel, tree: &RwLock<Tree>) -> Result<(), Error> {
     let f = duplicate::Finder::default();
-    let groups = f.find(cancel, tree, duplicate::Options { min_size: 1, workers: 0 }).ok_or("cancelled")?;
+    let groups = f
+        .find(
+            cancel,
+            tree,
+            duplicate::Options {
+                min_size: 1,
+                workers: 0,
+            },
+        )
+        .ok_or("cancelled")?;
     let t = tree.read().unwrap();
     let mut wasted = 0;
     for g in &groups {
         wasted += g.wasted();
         let h: String = g.hash[..6].iter().map(|b| format!("{b:02x}")).collect();
-        writeln!(out, "{} × {}  (sha256 {h}…)", textutil::size(g.size), g.files.len())?;
+        writeln!(
+            out,
+            "{} × {}  (sha256 {h}…)",
+            textutil::size(g.size),
+            g.files.len()
+        )?;
         for &id in &g.files {
             writeln!(out, "    {}", textutil::sanitize_bytes(&t.path_bytes(id)))?;
         }

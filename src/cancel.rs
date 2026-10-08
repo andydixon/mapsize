@@ -22,7 +22,11 @@ impl Default for Cancel {
 impl Cancel {
     pub fn new() -> Cancel {
         let (tx, rx) = crossbeam_channel::bounded(0);
-        Cancel(Arc::new(Inner { flag: AtomicBool::new(false), tx: Mutex::new(Some(tx)), rx }))
+        Cancel(Arc::new(Inner {
+            flag: AtomicBool::new(false),
+            tx: Mutex::new(Some(tx)),
+            rx,
+        }))
     }
 
     pub fn cancel(&self) {

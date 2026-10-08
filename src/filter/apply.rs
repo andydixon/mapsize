@@ -41,7 +41,9 @@ pub fn apply(cancel: &Cancel, t: &Tree, q: Arc<Query>, m: SizeMode) -> Option<Fi
     let mut matched = vec![false; n];
     let mut covered = vec![false; n];
     let mut count = 0;
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_nanos() as i64);
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos() as i64);
     let mut c = Ctx::new(t, 0, now);
     if q.uses_path {
         c.dir_paths = Some(vec![String::new(); n]);
@@ -75,5 +77,13 @@ pub fn apply(cancel: &Cancel, t: &Tree, q: Arc<Query>, m: SizeMode) -> Option<Fi
         sizes[p] = sizes[p].saturating_add(sizes[i]);
     }
     let total = sizes.first().copied().unwrap_or(0);
-    Some(FilterResult { query: q, mode: m, sizes, matched, count, total, elapsed: start.elapsed() })
+    Some(FilterResult {
+        query: q,
+        mode: m,
+        sizes,
+        matched,
+        count,
+        total,
+        elapsed: start.elapsed(),
+    })
 }

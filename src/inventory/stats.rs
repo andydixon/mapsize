@@ -18,13 +18,25 @@ pub const NUM_ERR_KINDS: usize = 5;
 
 impl ErrKind {
     pub fn from_u8(v: u8) -> ErrKind {
-        [ErrKind::Permission, ErrKind::Vanished, ErrKind::Io, ErrKind::Loop, ErrKind::Other]
-            .get(v as usize)
-            .copied()
-            .unwrap_or(ErrKind::Other)
+        [
+            ErrKind::Permission,
+            ErrKind::Vanished,
+            ErrKind::Io,
+            ErrKind::Loop,
+            ErrKind::Other,
+        ]
+        .get(v as usize)
+        .copied()
+        .unwrap_or(ErrKind::Other)
     }
     pub fn name(self) -> &'static str {
-        ["Permission denied", "Vanished during scan", "I/O error", "Symlink loop", "Other error"][self as usize]
+        [
+            "Permission denied",
+            "Vanished during scan",
+            "I/O error",
+            "Symlink loop",
+            "Other error",
+        ][self as usize]
     }
 }
 
@@ -46,7 +58,7 @@ pub fn classify(err: &io::Error) -> ErrKind {
 /// One recorded scan error.
 #[derive(Clone, Debug, Default)]
 pub struct ErrorRecord {
-    pub node: NodeId,  // node the error is attached to (the directory for listing failures)
+    pub node: NodeId, // node the error is attached to (the directory for listing failures)
     pub name: Vec<u8>, // entry name when no node was created (e.g. vanished)
     pub kind: ErrKind,
     pub msg: String,
@@ -89,11 +101,29 @@ pub struct Stats {
 impl Default for Stats {
     fn default() -> Self {
         Stats {
-            root: Vec::new(), start: SystemTime::now(), end: None, complete: false, cancelled: false,
-            files: 0, dirs: 0, symlinks: 0, others: 0, err_counts: [0; NUM_ERR_KINDS], errors: Vec::new(),
-            excluded: 0, skipped_mounts: 0, virtual_skipped: 0, loops_skipped: 0, broken_links: 0,
-            hardlink_dups: 0, unscanned: 0, excludes: Vec::new(), one_file_system: false,
-            follow: String::new(), workers: 0, from_snapshot: String::new(),
+            root: Vec::new(),
+            start: SystemTime::now(),
+            end: None,
+            complete: false,
+            cancelled: false,
+            files: 0,
+            dirs: 0,
+            symlinks: 0,
+            others: 0,
+            err_counts: [0; NUM_ERR_KINDS],
+            errors: Vec::new(),
+            excluded: 0,
+            skipped_mounts: 0,
+            virtual_skipped: 0,
+            loops_skipped: 0,
+            broken_links: 0,
+            hardlink_dups: 0,
+            unscanned: 0,
+            excludes: Vec::new(),
+            one_file_system: false,
+            follow: String::new(),
+            workers: 0,
+            from_snapshot: String::new(),
         }
     }
 }

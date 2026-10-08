@@ -41,7 +41,11 @@ pub fn sanitize(s: &str) -> String {
 }
 
 fn is_bidi_control(r: u32) -> bool {
-    (0x202a..=0x202e).contains(&r) || (0x2066..=0x2069).contains(&r) || r == 0x200e || r == 0x200f || r == 0x061c
+    (0x202a..=0x202e).contains(&r)
+        || (0x2066..=0x2069).contains(&r)
+        || r == 0x200e
+        || r == 0x200f
+        || r == 0x061c
 }
 
 /// Calls f for each grapheme cluster of s with its display width. Clusters
@@ -53,7 +57,11 @@ pub fn clusters(s: &str, mut f: impl FnMut(&str, usize) -> bool) {
     for c in s.graphemes(true) {
         let mut chars = c.chars();
         let first = chars.next().unwrap();
-        let w = if chars.next().is_none() { first.width().unwrap_or(0) } else { c.width() };
+        let w = if chars.next().is_none() {
+            first.width().unwrap_or(0)
+        } else {
+            c.width()
+        };
         if w == 0 {
             continue;
         }
@@ -171,7 +179,11 @@ const IEC_UNITS: [&str; 7] = ["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"];
 const SI_UNITS: [&str; 7] = ["B", "kB", "MB", "GB", "TB", "PB", "EB"];
 
 fn scaled(n: i64) -> (f64, &'static str) {
-    let (base, units) = if si() { (1000.0, &SI_UNITS) } else { (1024.0, &IEC_UNITS) };
+    let (base, units) = if si() {
+        (1000.0, &SI_UNITS)
+    } else {
+        (1024.0, &IEC_UNITS)
+    };
     let neg = n < 0;
     let mut v = (n as f64).abs();
     let mut i = 0;
@@ -295,7 +307,14 @@ mod tests {
 
     #[test]
     fn sizes() {
-        for (n, want) in [(0, "0 B"), (1023, "1023 B"), (1024, "1.00 KiB"), (1536, "1.50 KiB"), (181 << 30, "181 GiB"), (1 << 62, "4.00 EiB")] {
+        for (n, want) in [
+            (0, "0 B"),
+            (1023, "1023 B"),
+            (1024, "1.00 KiB"),
+            (1536, "1.50 KiB"),
+            (181 << 30, "181 GiB"),
+            (1 << 62, "4.00 EiB"),
+        ] {
             assert_eq!(size(n), want);
         }
         assert_eq!(count(2184392), "2,184,392");
@@ -330,7 +349,12 @@ pub fn rfc3339_utc(unix_nanos: i64) -> String {
     let d = doy - (153 * mp + 2) / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = yoe + era * 400 + (m <= 2) as i64;
-    format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z", rem / 3600, rem / 60 % 60, rem % 60)
+    format!(
+        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+        rem / 3600,
+        rem / 60 % 60,
+        rem % 60
+    )
 }
 
 /// Formats a duration like Go's time.Duration.String after rounding to
@@ -365,7 +389,10 @@ mod time_tests {
     #[test]
     fn formats() {
         assert_eq!(rfc3339_utc(0), "1970-01-01T00:00:00Z");
-        assert_eq!(rfc3339_utc(1_791_456_000 * 1_000_000_000), "2026-10-08T10:40:00Z");
+        assert_eq!(
+            rfc3339_utc(1_791_456_000 * 1_000_000_000),
+            "2026-10-08T10:40:00Z"
+        );
         assert_eq!(go_duration(Duration::from_micros(1_234_400)), "1.234s");
         assert_eq!(go_duration(Duration::from_millis(250)), "250ms");
         assert_eq!(go_duration(Duration::from_millis(123_500)), "2m3.5s");

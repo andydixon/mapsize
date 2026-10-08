@@ -10,7 +10,10 @@ use super::search::LineEditor;
 use super::{fmt_time, pad_left, pad_right, san, trunc, tw};
 use crate::export;
 use crate::filter;
-use crate::inventory::{NodeId, Tree, FLAG_ALLOC_UNKNOWN, FLAG_HARDLINK_DUP, FLAG_INCOMPLETE, FLAG_LOOP, FLAG_SCANNED, FLAG_SKIPPED_FS, FLAG_SPARSE, FLAG_VIRTUAL_FS, NO_NODE};
+use crate::inventory::{
+    NodeId, Tree, FLAG_ALLOC_UNKNOWN, FLAG_HARDLINK_DUP, FLAG_INCOMPLETE, FLAG_LOOP, FLAG_SCANNED,
+    FLAG_SKIPPED_FS, FLAG_SPARSE, FLAG_VIRTUAL_FS, NO_NODE,
+};
 use crate::platform;
 use crate::textutil;
 
@@ -42,7 +45,10 @@ impl Modal for InfoModal {
     }
 
     fn footer(&self, m: &Model) -> String {
-        let mut s = format!("Esc close  ·  c copy path  ·  o {}  ·  Space go to", reveal_verb());
+        let mut s = format!(
+            "Esc close  ·  c copy path  ·  o {}  ·  Space go to",
+            reveal_verb()
+        );
         if !m.opts.read_only && !m.snapshot {
             s += &format!("  ·  d {}", delete_verb());
         }
@@ -71,25 +77,67 @@ impl Modal for InfoModal {
             out.push(styled(l, vs));
         }
         if san(&n.name).as_bytes() != &*n.name {
-            out.push(styled("Name contains control or invalid characters (shown escaped)", warn));
+            out.push(styled(
+                "Name contains control or invalid characters (shown escaped)",
+                warn,
+            ));
         }
         out.push(txt(""));
         let mode = m.size_mode;
         if n.is_dir() {
-            add_s(&mut out, "Total logical", format!("{}  ({} bytes)", textutil::size(n.tot_size), textutil::count(n.tot_size)), bold);
-            add_s(&mut out, "Total allocated", format!("{}  ({} bytes)", textutil::size(n.tot_alloc), textutil::count(n.tot_alloc)), bold);
+            add_s(
+                &mut out,
+                "Total logical",
+                format!(
+                    "{}  ({} bytes)",
+                    textutil::size(n.tot_size),
+                    textutil::count(n.tot_size)
+                ),
+                bold,
+            );
+            add_s(
+                &mut out,
+                "Total allocated",
+                format!(
+                    "{}  ({} bytes)",
+                    textutil::size(n.tot_alloc),
+                    textutil::count(n.tot_alloc)
+                ),
+                bold,
+            );
             add(&mut out, "Files", textutil::count(n.files as i64));
             add(&mut out, "Directories", textutil::count(n.dirs as i64));
             if n.parent != NO_NODE {
-                add(&mut out, "Of parent", textutil::percent(n.total(mode), tr.node(n.parent).total(mode)));
+                add(
+                    &mut out,
+                    "Of parent",
+                    textutil::percent(n.total(mode), tr.node(n.parent).total(mode)),
+                );
             }
-            add(&mut out, "Of scan", textutil::percent(n.total(mode), tr.node(0).total(mode)));
+            add(
+                &mut out,
+                "Of scan",
+                textutil::percent(n.total(mode), tr.node(0).total(mode)),
+            );
             let k = m.kids_of(tr, self.id);
             if let Some(&first) = k.ids.first() {
-                add(&mut out, "Largest child", format!("{} ({})", san(&tr.node(first).name), textutil::size(k.sizes[0])));
+                add(
+                    &mut out,
+                    "Largest child",
+                    format!(
+                        "{} ({})",
+                        san(&tr.node(first).name),
+                        textutil::size(k.sizes[0])
+                    ),
+                );
             }
             if n.errors > 0 {
-                add_s(&mut out, "Errors beneath", textutil::count(n.errors as i64), Style::new(t.err, Default::default()).with(BOLD));
+                add_s(
+                    &mut out,
+                    "Errors beneath",
+                    textutil::count(n.errors as i64),
+                    Style::new(t.err, Default::default()).with(BOLD),
+                );
             }
             let state = if n.has(FLAG_INCOMPLETE) {
                 "incomplete (not fully read)"
@@ -102,15 +150,32 @@ impl Modal for InfoModal {
             };
             add(&mut out, "Scan state", state.into());
         } else {
-            add_s(&mut out, "Logical size", format!("{}  ({} bytes)", textutil::size(n.size), textutil::count(n.size)), bold);
+            add_s(
+                &mut out,
+                "Logical size",
+                format!(
+                    "{}  ({} bytes)",
+                    textutil::size(n.size),
+                    textutil::count(n.size)
+                ),
+                bold,
+            );
             let alloc = if n.has(FLAG_ALLOC_UNKNOWN) {
                 "unknown on this platform".to_string()
             } else {
-                format!("{}  ({} bytes)", textutil::size(n.alloc), textutil::count(n.alloc))
+                format!(
+                    "{}  ({} bytes)",
+                    textutil::size(n.alloc),
+                    textutil::count(n.alloc)
+                )
             };
             add_s(&mut out, "Allocated size", alloc, bold);
             if n.parent != NO_NODE {
-                add(&mut out, "Of parent", textutil::percent(n.own(mode), tr.node(n.parent).total(mode)));
+                add(
+                    &mut out,
+                    "Of parent",
+                    textutil::percent(n.own(mode), tr.node(n.parent).total(mode)),
+                );
             }
         }
         if let Some(r) = &m.search.result {
@@ -120,9 +185,19 @@ impl Modal for InfoModal {
             match d.old_size(self.id, mode) {
                 Some(old) => {
                     add(&mut out, "In old snapshot", textutil::size(old));
-                    add_s(&mut out, "Change", textutil::signed_size(n.total(mode) - old), bold);
+                    add_s(
+                        &mut out,
+                        "Change",
+                        textutil::signed_size(n.total(mode) - old),
+                        bold,
+                    );
                 }
-                None => add_s(&mut out, "Change", "new since old snapshot".into(), Style::new(t.diff_new, Default::default()).with(BOLD)),
+                None => add_s(
+                    &mut out,
+                    "Change",
+                    "new since old snapshot".into(),
+                    Style::new(t.diff_new, Default::default()).with(BOLD),
+                ),
             }
         }
         out.push(txt(""));
@@ -143,12 +218,23 @@ impl Modal for InfoModal {
         }
         out.push(txt(""));
         add(&mut out, "Mode", platform::mode::string(n.mode));
-        add(&mut out, "Owner", textutil::sanitize(&platform::user_name(n.uid)));
-        add(&mut out, "Group", textutil::sanitize(&platform::group_name(n.gid)));
+        add(
+            &mut out,
+            "Owner",
+            textutil::sanitize(&platform::user_name(n.uid)),
+        );
+        add(
+            &mut out,
+            "Group",
+            textutil::sanitize(&platform::group_name(n.gid)),
+        );
         if !n.is_dir() {
             add(&mut out, "Hard links", n.nlink.to_string());
             let sparse = if n.has(FLAG_SPARSE) {
-                format!("Yes (or compressed) — {} not allocated", textutil::size(n.size - n.alloc))
+                format!(
+                    "Yes (or compressed) — {} not allocated",
+                    textutil::size(n.size - n.alloc)
+                )
             } else {
                 "No".into()
             };
@@ -159,11 +245,17 @@ impl Modal for InfoModal {
             add_s(&mut out, "Flags", fl.join(", "), warn);
         }
         if n.has(FLAG_HARDLINK_DUP) {
-            out.push(styled("Another path to this inode was counted; this one adds nothing to totals.", ks));
+            out.push(styled(
+                "Another path to this inode was counted; this one adds nothing to totals.",
+                ks,
+            ));
         }
         if m.snapshot {
             out.push(txt(""));
-            out.push(styled("From snapshot — metadata as recorded, not live.", ks));
+            out.push(styled(
+                "From snapshot — metadata as recorded, not live.",
+                ks,
+            ));
         }
         out
     }
@@ -216,13 +308,22 @@ impl Modal for GroupModal {
         let t = m.theme.clone();
         let ids = self.g.ids();
         let mut out = vec![
-            txt(format!("{} items too small to draw individually at this size,", textutil::count(ids.len() as i64))),
-            txt(format!("totalling {}. Zoom in or enlarge the terminal to see them.", textutil::size(self.g.size))),
+            txt(format!(
+                "{} items too small to draw individually at this size,",
+                textutil::count(ids.len() as i64)
+            )),
+            txt(format!(
+                "totalling {}. Zoom in or enlarge the terminal to see them.",
+                textutil::size(self.g.size)
+            )),
             txt(""),
         ];
         for (i, &id) in ids.iter().enumerate() {
             if i == 200 {
-                out.push(styled(format!("… and {} more", textutil::count(ids.len() as i64 - 200)), Style::new(t.muted, Default::default())));
+                out.push(styled(
+                    format!("… and {} more", textutil::count(ids.len() as i64 - 200)),
+                    Style::new(t.muted, Default::default()),
+                ));
                 break;
             }
             let n = tr.node(id);
@@ -231,8 +332,17 @@ impl Modal for GroupModal {
                 name.push('/');
             }
             out.push(vec![
-                Span { s: pad_left(&textutil::size(m.size_of(tr, id)), 11) + "  ", st: Some(Style::new(t.muted, Default::default())) },
-                Span { s: trunc(&name, w - 13), st: Some(Style::new(m.color_of(tr, id as i64).mix(t.fg, 0.4), Default::default())) },
+                Span {
+                    s: pad_left(&textutil::size(m.size_of(tr, id)), 11) + "  ",
+                    st: Some(Style::new(t.muted, Default::default())),
+                },
+                Span {
+                    s: trunc(&name, w - 13),
+                    st: Some(Style::new(
+                        m.color_of(tr, id as i64).mix(t.fg, 0.4),
+                        Default::default(),
+                    )),
+                },
             ]);
         }
         out
@@ -281,10 +391,23 @@ impl Modal for HelpModal {
             out.push(styled(s, h));
         };
         let row = |out: &mut Vec<Line>, keys: &str, desc: &str| {
-            out.push(vec![Span { s: format!("  {}", pad_right(keys, 19)), st: Some(k) }, Span { s: desc.into(), st: Some(d) }]);
+            out.push(vec![
+                Span {
+                    s: format!("  {}", pad_right(keys, 19)),
+                    st: Some(k),
+                },
+                Span {
+                    s: desc.into(),
+                    st: Some(d),
+                },
+            ]);
         };
         sec(&mut out, "NAVIGATION");
-        row(&mut out, "↑ ↓ ← →  hjkl", "move spatially through the treemap");
+        row(
+            &mut out,
+            "↑ ↓ ← →  hjkl",
+            "move spatially through the treemap",
+        );
         row(&mut out, "Enter", "inspect the selected item");
         row(&mut out, "Space  →", "zoom into the selected directory");
         row(&mut out, "Backspace  ←", "zoom out one level");
@@ -292,20 +415,43 @@ impl Modal for HelpModal {
         row(&mut out, "click / dbl-click", "select / zoom (mouse)");
         row(&mut out, "wheel", "zoom in/out (map), scroll (lists)");
         sec(&mut out, "SEARCH & FILTER");
-        row(&mut out, "/", "search or filter; the map shows only matches");
+        row(
+            &mut out,
+            "/",
+            "search or filter; the map shows only matches",
+        );
         row(&mut out, "Esc", "clear the filter");
-        out.push(styled("    ubuntu   *.iso   size > 5GB   ext IN (iso,qcow2)   age > 365d", muted));
-        out.push(styled("    path contains cache AND NOT type = dir   owner = andy   flag = sparse", muted));
+        out.push(styled(
+            "    ubuntu   *.iso   size > 5GB   ext IN (iso,qcow2)   age > 365d",
+            muted,
+        ));
+        out.push(styled(
+            "    path contains cache AND NOT type = dir   owner = andy   flag = sparse",
+            muted,
+        ));
         let fields: Vec<&str> = filter::FIELDS.split_whitespace().collect();
         let split = 7.min(fields.len());
-        out.push(styled(format!("    fields: {}", fields[..split].join(" ")), muted));
-        out.push(styled(format!("            {}", fields[split..].join(" ")), muted));
-        out.push(styled("    sizes: KiB/MiB/GiB (1024), kB/MB/GB (1000); ages: s min h d w mo y", muted));
+        out.push(styled(
+            format!("    fields: {}", fields[..split].join(" ")),
+            muted,
+        ));
+        out.push(styled(
+            format!("            {}", fields[split..].join(" ")),
+            muted,
+        ));
+        out.push(styled(
+            "    sizes: KiB/MiB/GiB (1024), kB/MB/GB (1000); ages: s min h d w mo y",
+            muted,
+        ));
         sec(&mut out, "VIEWS");
         row(&mut out, "Tab  Shift+Tab", "next / previous view");
         row(&mut out, "1 – 7", "jump to a view");
         row(&mut out, "x", "file types (extension statistics)");
-        row(&mut out, "g", "top lists: largest, oldest, sparse, hard links …");
+        row(
+            &mut out,
+            "g",
+            "top lists: largest, oldest, sparse, hard links …",
+        );
         row(&mut out, "e", "scan information and errors");
         row(&mut out, "D", "find duplicate files (reads file contents)");
         sec(&mut out, "APPLICATION");
@@ -321,8 +467,15 @@ impl Modal for HelpModal {
         row(&mut out, "Ctrl+C", "cancel scan; press again to quit");
         row(&mut out, "q", "quit");
         out.push(txt(""));
-        let units = if crate::textutil::si() { "SI (kB = 1000 bytes)" } else { "IEC (KiB = 1024 bytes)" };
-        out.push(styled(format!("Sizes: {} · units: {units}", m.size_mode.name()), muted));
+        let units = if crate::textutil::si() {
+            "SI (kB = 1000 bytes)"
+        } else {
+            "IEC (KiB = 1024 bytes)"
+        };
+        out.push(styled(
+            format!("Sizes: {} · units: {units}", m.size_mode.name()),
+            muted,
+        ));
         out
     }
 
@@ -371,7 +524,9 @@ struct SaveModal {
 }
 
 pub(crate) fn new_save_modal(tr: &Tree) -> Box<dyn Modal> {
-    let mut md = SaveModal { ed: LineEditor::default() };
+    let mut md = SaveModal {
+        ed: LineEditor::default(),
+    };
     md.ed.set(&default_snapshot_name(&tr.stats.root));
     Box::new(md)
 }
@@ -399,7 +554,10 @@ impl Modal for SaveModal {
         }
         if m.scanning {
             out.push(txt(""));
-            out.push(styled("The scan is still running: the snapshot will be marked incomplete.", Style::new(t.warn, Default::default())));
+            out.push(styled(
+                "The scan is still running: the snapshot will be marked incomplete.",
+                Style::new(t.warn, Default::default()),
+            ));
         }
         out
     }

@@ -33,7 +33,12 @@ impl Rect {
 
     /// Shrinks by n cells on each side.
     pub fn inset(&self, n: i32) -> Rect {
-        Rect { x: self.x + n, y: self.y + n, w: (self.w - 2 * n).max(0), h: (self.h - 2 * n).max(0) }
+        Rect {
+            x: self.x + n,
+            y: self.y + n,
+            w: (self.w - 2 * n).max(0),
+            h: (self.h - 2 * n).max(0),
+        }
     }
 }
 
@@ -61,7 +66,11 @@ pub fn squarify(items: &[Item], bounds: Rect) -> Vec<Block> {
     if bounds.empty() {
         return Vec::new();
     }
-    let mut its: Vec<Item> = items.iter().copied().filter(|it| it.size > 0.0 && it.size.is_finite()).collect();
+    let mut its: Vec<Item> = items
+        .iter()
+        .copied()
+        .filter(|it| it.size > 0.0 && it.size.is_finite())
+        .collect();
     let total: f64 = its.iter().map(|it| it.size).sum();
     if its.is_empty() || total <= 0.0 {
         return Vec::new();
@@ -69,14 +78,28 @@ pub fn squarify(items: &[Item], bounds: Rect) -> Vec<Block> {
     its.sort_by(|a, b| b.size.total_cmp(&a.size).then(a.id.cmp(&b.id)));
     let scale = bounds.w as f64 * bounds.h as f64 / total;
     let areas: Vec<f64> = its.iter().map(|it| it.size * scale).collect();
-    let frs = layout(&areas, bounds.x as f64, bounds.y as f64, bounds.w as f64, bounds.h as f64);
+    let frs = layout(
+        &areas,
+        bounds.x as f64,
+        bounds.y as f64,
+        bounds.w as f64,
+        bounds.h as f64,
+    );
     let mut out = Vec::with_capacity(its.len());
     for (it, f) in its.iter().zip(frs) {
         let (x0, y0) = (f[0].round() as i32, f[1].round() as i32);
         let x1 = ((f[0] + f[2]).round() as i32).min(bounds.x + bounds.w);
         let y1 = ((f[1] + f[3]).round() as i32).min(bounds.y + bounds.h);
         if x1 > x0 && y1 > y0 {
-            out.push(Block { id: it.id, rect: Rect { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } });
+            out.push(Block {
+                id: it.id,
+                rect: Rect {
+                    x: x0,
+                    y: y0,
+                    w: x1 - x0,
+                    h: y1 - y0,
+                },
+            });
         }
     }
     out
@@ -117,7 +140,11 @@ fn layout(areas: &[f64], mut x: f64, mut y: f64, mut w: f64, mut h: f64) -> Vec<
             }
             let mut yy = y;
             for k in i..j {
-                let hh = if k == j - 1 { y + h - yy } else { areas[k] / sum * h };
+                let hh = if k == j - 1 {
+                    y + h - yy
+                } else {
+                    areas[k] / sum * h
+                };
                 out[k] = [x, yy, thick, hh];
                 yy += hh;
             }
@@ -130,7 +157,11 @@ fn layout(areas: &[f64], mut x: f64, mut y: f64, mut w: f64, mut h: f64) -> Vec<
             }
             let mut xx = x;
             for k in i..j {
-                let ww = if k == j - 1 { x + w - xx } else { areas[k] / sum * w };
+                let ww = if k == j - 1 {
+                    x + w - xx
+                } else {
+                    areas[k] / sum * w
+                };
                 out[k] = [xx, y, ww, thick];
                 xx += ww;
             }
@@ -203,7 +234,10 @@ pub(crate) mod tests {
         for bl in blocks {
             let br = bl.rect;
             assert!(br.w > 0 && br.h > 0, "non-positive block {bl:?}");
-            assert!(br.x >= b.x && br.y >= b.y && br.x + br.w <= b.x + b.w && br.y + br.h <= b.y + b.h, "block {bl:?} outside bounds {b:?}");
+            assert!(
+                br.x >= b.x && br.y >= b.y && br.x + br.w <= b.x + b.w && br.y + br.h <= b.y + b.h,
+                "block {bl:?} outside bounds {b:?}"
+            );
             for y in br.y..br.y + br.h {
                 for x in br.x..br.x + br.w {
                     let i = ((y - b.y) * b.w + (x - b.x)) as usize;
@@ -222,7 +256,15 @@ pub(crate) mod tests {
     #[test]
     fn squarify_basic() {
         let b = r(2, 3, 60, 20);
-        let items = [it(1, 6.0), it(2, 6.0), it(3, 4.0), it(4, 3.0), it(5, 2.0), it(6, 2.0), it(7, 1.0)];
+        let items = [
+            it(1, 6.0),
+            it(2, 6.0),
+            it(3, 4.0),
+            it(4, 3.0),
+            it(5, 2.0),
+            it(6, 2.0),
+            it(7, 1.0),
+        ];
         let blocks = squarify(&items, b);
         assert_eq!(blocks.len(), items.len());
         check_partition(&blocks, b, true);
@@ -230,7 +272,11 @@ pub(crate) mod tests {
         for bl in &blocks {
             let want = b.area() as f64 * items[(bl.id - 1) as usize].size / 24.0;
             let got = bl.rect.area() as f64;
-            assert!(got >= want * 0.6 - 4.0 && got <= want * 1.4 + 4.0, "block {} area {got} want ~{want}", bl.id);
+            assert!(
+                got >= want * 0.6 - 4.0 && got <= want * 1.4 + 4.0,
+                "block {} area {got} want ~{want}",
+                bl.id
+            );
         }
         // Deterministic regardless of input order.
         let mut rev = items.to_vec();
@@ -241,9 +287,18 @@ pub(crate) mod tests {
     #[test]
     fn squarify_edge_cases() {
         assert!(squarify(&[], r(0, 0, 10, 10)).is_empty());
-        assert!(squarify(&[it(1, 0.0), it(2, -5.0)], r(0, 0, 10, 10)).is_empty(), "zero sizes should produce nothing");
+        assert!(
+            squarify(&[it(1, 0.0), it(2, -5.0)], r(0, 0, 10, 10)).is_empty(),
+            "zero sizes should produce nothing"
+        );
         assert!(squarify(&[it(1, f64::NAN), it(2, f64::INFINITY)], r(0, 0, 10, 10)).is_empty());
-        for b in [r(0, 0, 0, 0), r(0, 0, 1, 1), r(0, 0, 1, 50), r(0, 0, 50, 1), r(0, 0, -3, 4)] {
+        for b in [
+            r(0, 0, 0, 0),
+            r(0, 0, 1, 1),
+            r(0, 0, 1, 50),
+            r(0, 0, 50, 1),
+            r(0, 0, -3, 4),
+        ] {
             let bl = squarify(&[it(1, 5.0), it(2, 3.0), it(3, 1.0)], b);
             if !b.empty() {
                 check_partition(&bl, b, true);
@@ -258,7 +313,13 @@ pub(crate) mod tests {
     #[test]
     fn resize_recomputes() {
         let items = [it(1, 50.0), it(2, 30.0), it(3, 20.0)];
-        for b in [r(0, 0, 80, 24), r(0, 0, 120, 40), r(0, 0, 300, 80), r(0, 0, 70, 20), r(0, 0, 180, 50)] {
+        for b in [
+            r(0, 0, 80, 24),
+            r(0, 0, 120, 40),
+            r(0, 0, 300, 80),
+            r(0, 0, 70, 20),
+            r(0, 0, 180, 50),
+        ] {
             let bl = squarify(&items, b);
             check_partition(&bl, b, true);
             assert_eq!(bl.len(), 3, "{b:?}");
@@ -270,7 +331,11 @@ pub(crate) mod tests {
     fn squarify_random_partitions() {
         let mut rng = Rng::new(1);
         for _ in 0..300 {
-            let (w, h, n) = (rng.intn(400) as i32, rng.intn(150) as i32, rng.intn(3000) as usize);
+            let (w, h, n) = (
+                rng.intn(400) as i32,
+                rng.intn(150) as i32,
+                rng.intn(3000) as usize,
+            );
             let items: Vec<Item> = (0..n)
                 .map(|i| {
                     let bits = rng.intn(40) + 1;
@@ -290,12 +355,25 @@ pub(crate) mod tests {
         let sizes = [100.0, 50.0, 10.0, 1.0, 1.0, 1.0];
         assert_eq!(visible(&sizes, 163.0, 1630, 20, 100), 3);
         assert_eq!(visible(&sizes, 163.0, 1630, 20, 2), 2, "max_items");
-        assert_eq!(visible(&[10.0, 1.0], 11.0, 1100, 200, 10), 2, "single leftover");
+        assert_eq!(
+            visible(&[10.0, 1.0], 11.0, 1100, 200, 10),
+            2,
+            "single leftover"
+        );
     }
 
     #[test]
     fn at_finds_block() {
-        let bl = [Block { id: 1, rect: r(0, 0, 5, 5) }, Block { id: 2, rect: r(5, 0, 5, 5) }];
+        let bl = [
+            Block {
+                id: 1,
+                rect: r(0, 0, 5, 5),
+            },
+            Block {
+                id: 2,
+                rect: r(5, 0, 5, 5),
+            },
+        ];
         assert_eq!(at(&bl, 6, 2), Some(2));
         assert_eq!(at(&bl, 10, 2), None);
     }

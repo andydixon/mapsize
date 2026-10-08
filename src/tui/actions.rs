@@ -36,11 +36,25 @@ impl Model {
         }
         let n = tr.node(id);
         let path = tr.path(id);
-        let want = Expect { uid: n.uid, mode: n.mode };
-        let what = if n.is_dir() { format!("directory with {} files", textutil::count(n.files as i64)) } else { "file".into() };
-        let mut body = vec![san(&tr.path_bytes(id)), String::new(), format!("{what} · {}", textutil::size(n.total(self.size_mode))), String::new()];
+        let want = Expect {
+            uid: n.uid,
+            mode: n.mode,
+        };
+        let what = if n.is_dir() {
+            format!("directory with {} files", textutil::count(n.files as i64))
+        } else {
+            "file".into()
+        };
+        let mut body = vec![
+            san(&tr.path_bytes(id)),
+            String::new(),
+            format!("{what} · {}", textutil::size(n.total(self.size_mode))),
+            String::new(),
+        ];
         if platform::headless() {
-            body.push("This is a headless system (no X or Wayland display), so there is no trash:".into());
+            body.push(
+                "This is a headless system (no X or Wayland display), so there is no trash:".into(),
+            );
             body.push("it will be permanently deleted and cannot be recovered.".into());
             self.open_modal(Box::new(ConfirmModal {
                 ttl: "Delete permanently? Are you sure?".into(),
@@ -50,13 +64,21 @@ impl Model {
                     let t = m.tree.clone();
                     Cmd::run(move || {
                         let err = platform::delete(&path, want).err().map(|e| e.to_string());
-                        Msg::TrashDone { tree: t, id, err, done: "Deleted".into() }
+                        Msg::TrashDone {
+                            tree: t,
+                            id,
+                            err,
+                            done: "Deleted".into(),
+                        }
                     })
                 })),
             }));
             return Cmd::None;
         }
-        body.push(format!("It will be moved to the {}, not permanently deleted.", platform::TRASH_NAME));
+        body.push(format!(
+            "It will be moved to the {}, not permanently deleted.",
+            platform::TRASH_NAME
+        ));
         self.open_modal(Box::new(ConfirmModal {
             ttl: "Move to trash?".into(),
             body,
@@ -65,14 +87,25 @@ impl Model {
                 let t = m.tree.clone();
                 Cmd::run(move || {
                     let err = platform::trash(&path, want).err().map(|e| e.to_string());
-                    Msg::TrashDone { tree: t, id, err, done: format!("Moved to {}", platform::TRASH_NAME) }
+                    Msg::TrashDone {
+                        tree: t,
+                        id,
+                        err,
+                        done: format!("Moved to {}", platform::TRASH_NAME),
+                    }
                 })
             })),
         }));
         Cmd::None
     }
 
-    pub fn trash_done(&mut self, tree: Arc<RwLock<Tree>>, id: NodeId, err: Option<String>, done: String) -> Cmd {
+    pub fn trash_done(
+        &mut self,
+        tree: Arc<RwLock<Tree>>,
+        id: NodeId,
+        err: Option<String>,
+        done: String,
+    ) -> Cmd {
         if let Some(e) = err {
             return self.warn(format!("Delete failed: {}", textutil::sanitize(&e)));
         }
@@ -84,7 +117,13 @@ impl Model {
         let name = {
             let mut t = self.tree.write().unwrap();
             let n = t.node(id).clone();
-            let mut d = Delta { size: -n.tot_size, alloc: -n.tot_alloc, files: -(n.files as i64), dirs: -(n.dirs as i64), ..Default::default() };
+            let mut d = Delta {
+                size: -n.tot_size,
+                alloc: -n.tot_alloc,
+                files: -(n.files as i64),
+                dirs: -(n.dirs as i64),
+                ..Default::default()
+            };
             if n.is_dir() {
                 d.dirs -= 1;
                 if let Some(cs) = t.cat_sizes(id) {
@@ -125,21 +164,38 @@ impl Model {
                 "Files are grouped by size, then sampled, then fully hashed with SHA-256.".into(),
                 "Only identical hashes are reported as duplicates.".into(),
                 String::new(),
-                "This reads file contents (it may take a while and can update access times).".into(),
+                "This reads file contents (it may take a while and can update access times)."
+                    .into(),
             ],
             yes: "start".into(),
             on_yes: Some(Box::new(|m: &mut Model| {
                 let cancel = Cancel::new();
                 let f = Arc::new(Finder::default());
-                m.dups = Some(DupState { running: true, finder: f.clone(), groups: Vec::new(), err: None, cancel: cancel.clone() });
+                m.dups = Some(DupState {
+                    running: true,
+                    finder: f.clone(),
+                    groups: Vec::new(),
+                    err: None,
+                    cancel: cancel.clone(),
+                });
                 m.ensure_dup_view();
                 let t = m.tree.clone();
                 let tick = m.start_ticking();
                 Cmd::batch(vec![
                     tick,
                     Cmd::run(move || {
-                        let g = f.find(&cancel, &t, duplicate::Options { min_size: 1, workers: 4 });
-                        Msg::DupDone { finder: f, groups: g }
+                        let g = f.find(
+                            &cancel,
+                            &t,
+                            duplicate::Options {
+                                min_size: 1,
+                                workers: 4,
+                            },
+                        );
+                        Msg::DupDone {
+                            finder: f,
+                            groups: g,
+                        }
                     }),
                 ])
             })),
@@ -148,22 +204,39 @@ impl Model {
     }
 
     pub fn ensure_dup_view(&mut self) {
-        if let Some(i) = self.views.iter().position(|v| matches!(v, super::views::View::Dups(_))) {
+        if let Some(i) = self
+            .views
+            .iter()
+            .position(|v| matches!(v, super::views::View::Dups(_)))
+        {
             self.set_view(i);
             return;
         }
-        self.views.push(super::views::View::Dups(DupView::default()));
+        self.views
+            .push(super::views::View::Dups(DupView::default()));
         self.set_view(self.views.len() - 1);
     }
 
     pub fn dup_done(&mut self, finder: Arc<Finder>, groups: Option<Vec<duplicate::Group>>) -> Cmd {
-        let Some(d) = self.dups.as_mut().filter(|d| Arc::ptr_eq(&d.finder, &finder)) else { return Cmd::None };
+        let Some(d) = self
+            .dups
+            .as_mut()
+            .filter(|d| Arc::ptr_eq(&d.finder, &finder))
+        else {
+            return Cmd::None;
+        };
         d.running = false;
         d.err = groups.is_none().then(|| "cancelled".to_string());
         d.groups = groups.unwrap_or_default();
-        let (n, wasted) = (d.groups.len(), d.groups.iter().map(|g| g.wasted()).sum::<i64>());
+        let (n, wasted) = (
+            d.groups.len(),
+            d.groups.iter().map(|g| g.wasted()).sum::<i64>(),
+        );
         self.dirty = true;
-        self.info(format!("Duplicates: {n} verified groups, {} reclaimable", textutil::size(wasted)))
+        self.info(format!(
+            "Duplicates: {n} verified groups, {} reclaimable",
+            textutil::size(wasted)
+        ))
     }
 }
 
@@ -185,23 +258,53 @@ impl DupView {
     pub fn paint(&mut self, m: &mut Model, tr: &Tree, cv: &mut Canvas, r: Rect) {
         let t = m.theme.clone();
         let Some(d) = &m.dups else {
-            cv.text_centered(r.x, r.y + r.h / 2, r.w, "Press D to search for duplicates", t.muted());
+            cv.text_centered(
+                r.x,
+                r.y + r.h / 2,
+                r.w,
+                "Press D to search for duplicates",
+                t.muted(),
+            );
             return;
         };
         if d.running {
             let p = d.finder.progress();
             cv.fill(r, " ", t.base());
             let y = r.y + r.h / 2 - 2;
-            cv.text_centered(r.x, y, r.w, &format!("Finding duplicates — {}…", p.stage), Style::new(t.accent, t.bg).with(BOLD));
-            cv.text_centered(r.x, y + 2, r.w,
-                &format!("{} candidate files in {} size groups", textutil::count(p.candidates), textutil::count(p.candidate_groups)), t.base());
+            cv.text_centered(
+                r.x,
+                y,
+                r.w,
+                &format!("Finding duplicates — {}…", p.stage),
+                Style::new(t.accent, t.bg).with(BOLD),
+            );
+            cv.text_centered(
+                r.x,
+                y + 2,
+                r.w,
+                &format!(
+                    "{} candidate files in {} size groups",
+                    textutil::count(p.candidates),
+                    textutil::count(p.candidate_groups)
+                ),
+                t.base(),
+            );
             if p.bytes_to_hash > 0 {
                 let frac = p.bytes_hashed as f64 / p.bytes_to_hash as f64;
                 let bw = 60.min(r.w - 10);
                 m.paint_bar(cv, r.x + (r.w - bw) / 2, y + 4, bw, frac, t.accent, false);
-                cv.text_centered(r.x, y + 5, r.w,
-                    &format!("{} of {} hashed · {} skipped", textutil::size(p.bytes_hashed), textutil::size(p.bytes_to_hash), textutil::count(p.skipped)),
-                    t.muted());
+                cv.text_centered(
+                    r.x,
+                    y + 5,
+                    r.w,
+                    &format!(
+                        "{} of {} hashed · {} skipped",
+                        textutil::size(p.bytes_hashed),
+                        textutil::size(p.bytes_to_hash),
+                        textutil::count(p.skipped)
+                    ),
+                    t.muted(),
+                );
             }
             return;
         }
@@ -211,22 +314,44 @@ impl DupView {
             self.rows.push((gi, NO_NODE));
             let hash: String = g.hash[..8].iter().map(|b| format!("{b:02x}")).collect();
             rows.push(TableRow {
-                cells: vec![textutil::size(g.wasted()), format!("{} × {}", g.files.len(), textutil::size(g.size)),
-                    format!("verified identical · sha256 {hash}…")],
-                styles: vec![Some(Style::new(t.warn, t.bg).with(BOLD)), Some(Style::new(t.fg, t.bg).with(BOLD)), Some(Style::new(t.ok, t.bg))],
+                cells: vec![
+                    textutil::size(g.wasted()),
+                    format!("{} × {}", g.files.len(), textutil::size(g.size)),
+                    format!("verified identical · sha256 {hash}…"),
+                ],
+                styles: vec![
+                    Some(Style::new(t.warn, t.bg).with(BOLD)),
+                    Some(Style::new(t.fg, t.bg).with(BOLD)),
+                    Some(Style::new(t.ok, t.bg)),
+                ],
                 bar: -1.0,
                 ..Default::default()
             });
             for &id in &g.files {
                 self.rows.push((gi, id));
-                rows.push(TableRow { cells: vec![String::new(), String::new(), format!("  {}", san(&tr.path_bytes(id)))], bar: -1.0, ..Default::default() });
+                rows.push(TableRow {
+                    cells: vec![
+                        String::new(),
+                        String::new(),
+                        format!("  {}", san(&tr.path_bytes(id))),
+                    ],
+                    bar: -1.0,
+                    ..Default::default()
+                });
             }
         }
-        let mut title = format!("Duplicates — {} groups (Enter details · Space go to)", d.groups.len());
+        let mut title = format!(
+            "Duplicates — {} groups (Enter details · Space go to)",
+            d.groups.len()
+        );
         if let Some(e) = &d.err {
             title += &format!(" — stopped: {}", textutil::sanitize(e));
         }
-        let cols = [col("WASTED", 10, true, false), col("COPIES", 16, false, false), col("", 0, false, false)];
+        let cols = [
+            col("WASTED", 10, true, false),
+            col("COPIES", 16, false, false),
+            col("", 0, false, false),
+        ];
         self.tb.paint(m, cv, r, &cols, &rows, &title);
     }
 

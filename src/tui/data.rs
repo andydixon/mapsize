@@ -39,8 +39,11 @@ impl Model {
         if let Some(k) = self.kids_cache.get(&id) {
             return k.clone();
         }
-        let mut v: Vec<(i64, NodeId)> =
-            tr.children(id).map(|(c, _)| (self.size_of(tr, c), c)).filter(|&(s, _)| s > 0).collect();
+        let mut v: Vec<(i64, NodeId)> = tr
+            .children(id)
+            .map(|(c, _)| (self.size_of(tr, c), c))
+            .filter(|&(s, _)| s > 0)
+            .collect();
         v.sort_unstable_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
         let k = Rc::new(Kids {
             total: v.iter().map(|e| e.0).sum(),
@@ -119,7 +122,11 @@ impl Model {
         let prev = self.zoom;
         self.zoom = dir;
         // Coming back out, keep the directory we left selected.
-        self.sel = if tr.is_ancestor(dir, prev) { prev as i64 } else { NO_SEL };
+        self.sel = if tr.is_ancestor(dir, prev) {
+            prev as i64
+        } else {
+            NO_SEL
+        };
         self.user_sel = self.sel != NO_SEL;
         self.zoomed = true;
         self.dirty = true;

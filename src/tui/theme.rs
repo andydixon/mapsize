@@ -119,7 +119,11 @@ fn high_contrast_theme() -> Theme {
 }
 
 fn mono_theme() -> Theme {
-    Theme { name: "mono", mono: true, ..Theme::default() }
+    Theme {
+        name: "mono",
+        mono: true,
+        ..Theme::default()
+    }
 }
 
 /// Returns a built-in theme with user overrides applied.

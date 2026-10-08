@@ -117,7 +117,12 @@ fn cvt(r: libc::c_int) -> io::Result<libc::c_int> {
 
 fn open_dir(path: &[u8]) -> io::Result<OwnedFd> {
     let c = cstr(path)?;
-    let fd = cvt(unsafe { libc::open(c.as_ptr(), libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC) })?;
+    let fd = cvt(unsafe {
+        libc::open(
+            c.as_ptr(),
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC,
+        )
+    })?;
     Ok(unsafe { OwnedFd::from_raw_fd(fd) })
 }
 
@@ -129,7 +134,15 @@ fn stat_at(dirfd: RawFd, name: &CStr, flags: libc::c_int) -> io::Result<Meta> {
     if !NO_STATX.load(Ordering::Relaxed) {
         let mut st: libc::statx = unsafe { std::mem::zeroed() };
         let mask = libc::STATX_BASIC_STATS | libc::STATX_BTIME;
-        let r = unsafe { libc::statx(dirfd, name.as_ptr(), flags | libc::AT_STATX_DONT_SYNC, mask, &mut st) };
+        let r = unsafe {
+            libc::statx(
+                dirfd,
+                name.as_ptr(),
+                flags | libc::AT_STATX_DONT_SYNC,
+                mask,
+                &mut st,
+            )
+        };
         if r == 0 {
             let mut m = Meta {
                 mode: mode_from_unix(st.stx_mode as u32),
@@ -202,7 +215,11 @@ impl Drop for DirStream {
 /// Streams the entries of a directory in chunks of up to `chunk`, stat-ing
 /// each entry relative to the directory fd (no repeated path resolution).
 /// Returning an error from f stops the read and returns it.
-pub fn read_dir<E: From<io::Error>>(path: &[u8], chunk: usize, mut f: impl FnMut(Vec<Meta>) -> Result<(), E>) -> Result<(), E> {
+pub fn read_dir<E: From<io::Error>>(
+    path: &[u8],
+    chunk: usize,
+    mut f: impl FnMut(Vec<Meta>) -> Result<(), E>,
+) -> Result<(), E> {
     let fd = open_dir(path)?;
     let raw = fd.as_raw_fd();
     let dir = unsafe { libc::fdopendir(raw) };
@@ -227,7 +244,10 @@ pub fn read_dir<E: From<io::Error>>(path: &[u8], chunk: usize, mut f: impl FnMut
         if nb == b"." || nb == b".." {
             continue;
         }
-        let mut m = stat_at(raw, name, libc::AT_SYMLINK_NOFOLLOW).unwrap_or_else(|e| Meta { err: Some(e), ..Default::default() });
+        let mut m = stat_at(raw, name, libc::AT_SYMLINK_NOFOLLOW).unwrap_or_else(|e| Meta {
+            err: Some(e),
+            ..Default::default()
+        });
         m.name = nb.to_vec();
         out.push(m);
         if out.len() >= chunk {
@@ -387,14 +407,22 @@ fn check_abs(path: &Path) -> io::Result<()> {
 /// final symlink, and O_NONBLOCK keeps a FIFO swapped in since the scan from
 /// blocking open(2) forever; callers still check the file type.
 pub fn open_content(path: &Path) -> io::Result<File> {
-    std::fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK).open(path)
+    std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
 }
 
 /// Runs a helper program with an argument vector (never a shell), detached
 /// from the terminal so it cannot disturb the TUI.
 fn start_detached(name: &str, arg: &Path) -> io::Result<()> {
     use std::process::{Command, Stdio};
-    let mut child = Command::new(name).arg(arg).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
+    let mut child = Command::new(name)
+        .arg(arg)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
     std::thread::spawn(move || child.wait());
     Ok(())
 }
@@ -406,8 +434,16 @@ pub const TRASH_NAME: &str = "trash";
 pub fn reveal(path: &Path) -> io::Result<()> {
     check_abs(path)?;
     let md = std::fs::symlink_metadata(path)?;
-    let target = if md.is_dir() { path } else { path.parent().unwrap_or(path) };
-    let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+    let target = if md.is_dir() {
+        path
+    } else {
+        path.parent().unwrap_or(path)
+    };
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
     start_detached(opener, target)
 }
 
@@ -417,7 +453,8 @@ pub fn headless() -> bool {
     if cfg!(target_os = "macos") {
         return false;
     }
-    std::env::var_os("DISPLAY").is_none_or(|v| v.is_empty()) && std::env::var_os("WAYLAND_DISPLAY").is_none_or(|v| v.is_empty())
+    std::env::var_os("DISPLAY").is_none_or(|v| v.is_empty())
+        && std::env::var_os("WAYLAND_DISPLAY").is_none_or(|v| v.is_empty())
 }
 
 fn split_parent(path: &Path) -> io::Result<(&Path, &OsStr)> {
@@ -430,7 +467,9 @@ fn split_parent(path: &Path) -> io::Result<(&Path, &OsStr)> {
 fn check_expect(dirfd: RawFd, base: &CStr, want: Expect) -> io::Result<libc::stat> {
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
     cvt(unsafe { libc::fstatat(dirfd, base.as_ptr(), &mut st, libc::AT_SYMLINK_NOFOLLOW) })?;
-    if st.st_uid != want.uid || mode_from_unix(st.st_mode as u32) & mode::TYPE != want.mode & mode::TYPE {
+    if st.st_uid != want.uid
+        || mode_from_unix(st.st_mode as u32) & mode::TYPE != want.mode & mode::TYPE
+    {
         return Err(other(CHANGED));
     }
     Ok(st)
@@ -446,7 +485,11 @@ pub fn delete(path: &Path, want: Expect) -> io::Result<()> {
     let dfd = open_dir(dir.as_os_str().as_bytes())?;
     let cbase = cstr(base.as_bytes())?;
     let st = check_expect(dfd.as_raw_fd(), &cbase, want)?;
-    remove_at(dfd.as_raw_fd(), &cbase, st.st_mode & libc::S_IFMT == libc::S_IFDIR)
+    remove_at(
+        dfd.as_raw_fd(),
+        &cbase,
+        st.st_mode & libc::S_IFMT == libc::S_IFDIR,
+    )
 }
 
 fn remove_at(dirfd: RawFd, name: &CStr, is_dir: bool) -> io::Result<()> {
@@ -454,7 +497,11 @@ fn remove_at(dirfd: RawFd, name: &CStr, is_dir: bool) -> io::Result<()> {
         return cvt(unsafe { libc::unlinkat(dirfd, name.as_ptr(), 0) }).map(|_| ());
     }
     let fd = cvt(unsafe {
-        libc::openat(dirfd, name.as_ptr(), libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        libc::openat(
+            dirfd,
+            name.as_ptr(),
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+        )
     })?;
     let sub = unsafe { OwnedFd::from_raw_fd(fd) };
     // Collect names first: removing while iterating a DIR stream is unspecified.
@@ -475,7 +522,8 @@ fn remove_at(dirfd: RawFd, name: &CStr, is_dir: bool) -> io::Result<()> {
         if n.to_bytes() != b"." && n.to_bytes() != b".." {
             let t = unsafe { (*ent).d_type };
             let is_dir = match t {
-                libc::DT_UNKNOWN => fstat_at(sub.as_raw_fd(), n, libc::AT_SYMLINK_NOFOLLOW).is_ok_and(|m| mode::is_dir(m.mode)),
+                libc::DT_UNKNOWN => fstat_at(sub.as_raw_fd(), n, libc::AT_SYMLINK_NOFOLLOW)
+                    .is_ok_and(|m| mode::is_dir(m.mode)),
                 t => t == libc::DT_DIR,
             };
             names.push((n.to_owned(), is_dir));
@@ -498,7 +546,15 @@ fn rename_checked(path: &Path, dst: &Path, want: Expect) -> io::Result<()> {
     let cbase = cstr(base.as_bytes())?;
     check_expect(dfd.as_raw_fd(), &cbase, want)?;
     let cdst = cstr(dst.as_os_str().as_bytes())?;
-    cvt(unsafe { libc::renameat(dfd.as_raw_fd(), cbase.as_ptr(), libc::AT_FDCWD, cdst.as_ptr()) }).map(|_| ())
+    cvt(unsafe {
+        libc::renameat(
+            dfd.as_raw_fd(),
+            cbase.as_ptr(),
+            libc::AT_FDCWD,
+            cdst.as_ptr(),
+        )
+    })
+    .map(|_| ())
 }
 
 /// Creates dir (mode 0700) if missing; an existing entry must be a real
@@ -529,7 +585,9 @@ fn ensure_private_dir(dir: &Path, strict: bool) -> io::Result<()> {
 fn mount_top(path: &Path, dev: u64) -> PathBuf {
     let mut cur = path.parent().unwrap_or(path).to_path_buf();
     loop {
-        let Some(parent) = cur.parent() else { return cur };
+        let Some(parent) = cur.parent() else {
+            return cur;
+        };
         match std::fs::metadata(parent) {
             Ok(m) if m.dev() == dev => cur = parent.to_path_buf(),
             _ => return cur,
@@ -553,7 +611,15 @@ fn local_timestamp() -> String {
     let mut t: libc::time_t = unsafe { libc::time(std::ptr::null_mut()) };
     let mut tm: libc::tm = unsafe { std::mem::zeroed() };
     unsafe { libc::localtime_r(&mut t, &mut tm) };
-    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec)
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
+        tm.tm_year + 1900,
+        tm.tm_mon + 1,
+        tm.tm_mday,
+        tm.tm_hour,
+        tm.tm_min,
+        tm.tm_sec
+    )
 }
 
 /// Moves path to the freedesktop.org trash: the home trash when on the same
@@ -565,7 +631,9 @@ pub fn trash(path: &Path, want: Expect) -> io::Result<()> {
     let data_home = match std::env::var_os("XDG_DATA_HOME").filter(|v| !v.is_empty()) {
         Some(d) => PathBuf::from(d),
         None => {
-            let home = std::env::var_os("HOME").filter(|v| !v.is_empty()).ok_or_else(|| other("$HOME is not defined"))?;
+            let home = std::env::var_os("HOME")
+                .filter(|v| !v.is_empty())
+                .ok_or_else(|| other("$HOME is not defined"))?;
             PathBuf::from(home).join(".local/share")
         }
     };
@@ -575,21 +643,31 @@ pub fn trash(path: &Path, want: Expect) -> io::Result<()> {
         _ => {
             let top = mount_top(path, dev);
             let rel = path.strip_prefix(&top).map_err(|e| other(e.to_string()))?;
-            (top.join(format!(".Trash-{}", unsafe { libc::getuid() })), rel.as_os_str().as_bytes().to_vec())
+            (
+                top.join(format!(".Trash-{}", unsafe { libc::getuid() })),
+                rel.as_os_str().as_bytes().to_vec(),
+            )
         }
     };
     let shared = trash != home;
     if !shared {
         use std::os::unix::fs::DirBuilderExt;
-        std::fs::DirBuilder::new().recursive(true).mode(0o700).create(&trash)?;
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&trash)?;
     } else if let Err(e) = ensure_private_dir(&trash, true) {
         // On a shared filesystem another user could plant a symlink or a
         // world-writable directory here; refuse rather than follow it.
-        return Err(other(format!("trash directory {} is unsafe: {e}", trash.display())));
+        return Err(other(format!(
+            "trash directory {} is unsafe: {e}",
+            trash.display()
+        )));
     }
     let (files, info) = (trash.join("files"), trash.join("info"));
     for d in [&files, &info] {
-        ensure_private_dir(d, shared).map_err(|e| other(format!("trash directory {} is unsafe: {e}", d.display())))?;
+        ensure_private_dir(d, shared)
+            .map_err(|e| other(format!("trash directory {} is unsafe: {e}", d.display())))?;
     }
     let base = path.file_name().ok_or_else(|| other("no file name"))?;
     for i in 1..10000 {
@@ -604,12 +682,23 @@ pub fn trash(path: &Path, want: Expect) -> io::Result<()> {
         let mut info_name = name.clone();
         info_name.push(".trashinfo");
         let ip = info.join(info_name);
-        let mut f = match std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&ip) {
+        let mut f = match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&ip)
+        {
             Ok(f) => f,
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(e) => return Err(e),
         };
-        let w = write!(f, "[Trash Info]\nPath={}\nDeletionDate={}\n", percent_encode_path(&info_path), local_timestamp()).and_then(|_| f.sync_all());
+        let w = write!(
+            f,
+            "[Trash Info]\nPath={}\nDeletionDate={}\n",
+            percent_encode_path(&info_path),
+            local_timestamp()
+        )
+        .and_then(|_| f.sync_all());
         drop(f);
         if let Err(e) = w.and_then(|_| rename_checked(path, &dst, want)) {
             let _ = std::fs::remove_file(&ip);
@@ -638,7 +727,14 @@ mod tests {
         std::fs::write(d.join("sub/inner/f"), b"x").unwrap();
         let uid = unsafe { libc::getuid() };
         assert!(delete(&d.join("sub"), Expect { uid, mode: 0 }).is_err());
-        delete(&d.join("sub"), Expect { uid, mode: mode::DIR }).unwrap();
+        delete(
+            &d.join("sub"),
+            Expect {
+                uid,
+                mode: mode::DIR,
+            },
+        )
+        .unwrap();
         assert!(!d.join("sub").exists());
         std::fs::remove_dir_all(&d).unwrap();
     }

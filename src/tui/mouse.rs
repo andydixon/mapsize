@@ -32,7 +32,8 @@ impl Model {
         for i in (0..self.hits.len()).rev() {
             if self.hits[i].r.contains(x, y) {
                 let key = (y as i64) << 32 | i as i64;
-                let double = self.last_click.is_some_and(|t| t.elapsed() < DOUBLE_CLICK) && self.last_click_i == key;
+                let double = self.last_click.is_some_and(|t| t.elapsed() < DOUBLE_CLICK)
+                    && self.last_click_i == key;
                 (self.last_click, self.last_click_i) = (Some(Instant::now()), key);
                 if double {
                     self.last_click_i = NO_SEL;

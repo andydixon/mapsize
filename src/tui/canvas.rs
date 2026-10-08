@@ -40,7 +40,11 @@ impl Color {
     }
 
     pub fn comps(self) -> (f64, f64, f64) {
-        (self.r() as f64 / 255.0, self.g() as f64 / 255.0, self.b() as f64 / 255.0)
+        (
+            self.r() as f64 / 255.0,
+            self.g() as f64 / 255.0,
+            self.b() as f64 / 255.0,
+        )
     }
 
     /// Blends c towards o by t (0..1). Default colours are returned as-is.
@@ -82,7 +86,10 @@ impl Style {
         Style { fg, bg, attr: 0 }
     }
     pub const fn with(self, a: Attr) -> Style {
-        Style { attr: self.attr | a, ..self }
+        Style {
+            attr: self.attr | a,
+            ..self
+        }
     }
 }
 
@@ -127,11 +134,46 @@ pub(crate) struct BoxChars {
     pub br: &'static str,
 }
 
-pub(crate) const BOX_LIGHT: BoxChars = BoxChars { h: "─", v: "│", tl: "┌", tr: "┐", bl: "└", br: "┘" };
-pub(crate) const BOX_ROUND: BoxChars = BoxChars { h: "─", v: "│", tl: "╭", tr: "╮", bl: "╰", br: "╯" };
-pub(crate) const BOX_DOUBLE: BoxChars = BoxChars { h: "═", v: "║", tl: "╔", tr: "╗", bl: "╚", br: "╝" };
-pub(crate) const BOX_ASCII: BoxChars = BoxChars { h: "-", v: "|", tl: "+", tr: "+", bl: "+", br: "+" };
-pub(crate) const BOX_ASCII_SEL: BoxChars = BoxChars { h: "=", v: "#", tl: "#", tr: "#", bl: "#", br: "#" };
+pub(crate) const BOX_LIGHT: BoxChars = BoxChars {
+    h: "─",
+    v: "│",
+    tl: "┌",
+    tr: "┐",
+    bl: "└",
+    br: "┘",
+};
+pub(crate) const BOX_ROUND: BoxChars = BoxChars {
+    h: "─",
+    v: "│",
+    tl: "╭",
+    tr: "╮",
+    bl: "╰",
+    br: "╯",
+};
+pub(crate) const BOX_DOUBLE: BoxChars = BoxChars {
+    h: "═",
+    v: "║",
+    tl: "╔",
+    tr: "╗",
+    bl: "╚",
+    br: "╝",
+};
+pub(crate) const BOX_ASCII: BoxChars = BoxChars {
+    h: "-",
+    v: "|",
+    tl: "+",
+    tr: "+",
+    bl: "+",
+    br: "+",
+};
+pub(crate) const BOX_ASCII_SEL: BoxChars = BoxChars {
+    h: "=",
+    v: "#",
+    tl: "#",
+    tr: "#",
+    bl: "#",
+    br: "#",
+};
 
 /// Selects how colours are serialised.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -154,7 +196,12 @@ impl Canvas {
     /// Creates a canvas filled with spaces in style st.
     pub fn new(w: i32, h: i32, st: Style) -> Canvas {
         let (w, h) = (w.max(0), h.max(0));
-        Canvas { w, h, c: vec![Cell::space(st); (w * h) as usize], big: Vec::new() }
+        Canvas {
+            w,
+            h,
+            c: vec![Cell::space(st); (w * h) as usize],
+            big: Vec::new(),
+        }
     }
 
     fn inside(&self, x: i32, y: i32) -> bool {
@@ -180,7 +227,12 @@ impl Canvas {
             self.big.push(s.to_string());
             HEAP
         };
-        Cell { g, n, w: w as u8, st }
+        Cell {
+            g,
+            n,
+            w: w as u8,
+            st,
+        }
     }
 
     /// Writes one cluster of width w at (x, y), repairing any wide cluster
@@ -204,7 +256,12 @@ impl Canvas {
         }
         self.c[row + xu] = self.make(s, w, st);
         for i in 1..wu {
-            self.c[row + xu + i] = Cell { g: [0; INLINE], n: 0, w: 0, st };
+            self.c[row + xu + i] = Cell {
+                g: [0; INLINE],
+                n: 0,
+                w: 0,
+                st,
+            };
         }
     }
 
@@ -331,7 +388,13 @@ impl Canvas {
 
 fn sgr(b: &mut String, st: Style, depth: Depth) {
     b.push_str("\x1b[0");
-    for (bit, code) in [(BOLD, ";1"), (FAINT, ";2"), (ITALIC, ";3"), (UNDERLINE, ";4"), (REVERSE, ";7")] {
+    for (bit, code) in [
+        (BOLD, ";1"),
+        (FAINT, ";2"),
+        (ITALIC, ";3"),
+        (UNDERLINE, ";4"),
+        (REVERSE, ";7"),
+    ] {
         if st.attr & bit != 0 {
             b.push_str(code);
         }
@@ -351,7 +414,14 @@ fn sgr(b: &mut String, st: Style, depth: Depth) {
                 }
                 write!(b, ";{code}")
             }
-            Depth::True => write!(b, ";{};2;{};{};{}", if bg { 48 } else { 38 }, c.r(), c.g(), c.b()),
+            Depth::True => write!(
+                b,
+                ";{};2;{};{};{}",
+                if bg { 48 } else { 38 },
+                c.r(),
+                c.g(),
+                c.b()
+            ),
         };
     };
     col(b, st.fg, false);

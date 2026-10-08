@@ -4,11 +4,14 @@ use super::actions::DupView;
 use super::canvas::{Canvas, Color, Style, BOLD};
 use super::infoview::InfoView;
 use super::mapview::{map_key, map_paint, map_wheel};
-use super::model::{Cmd, Model};
 use super::modals::new_info_modal;
+use super::model::{Cmd, Model};
 use super::table::{col, Table, TableRow};
 use super::{fmt_date, san};
-use crate::inventory::{ExtStat, Kind, NodeId, SizeMode, TopK, Tree, FLAG_DELETED, FLAG_HARDLINKED, FLAG_HARDLINK_DUP, FLAG_SPARSE, NO_NODE};
+use crate::inventory::{
+    ExtStat, Kind, NodeId, SizeMode, TopK, Tree, FLAG_DELETED, FLAG_HARDLINKED, FLAG_HARDLINK_DUP,
+    FLAG_SPARSE, NO_NODE,
+};
 use crate::snapshot::{Change, Status};
 use crate::textutil;
 use crate::treemap::Rect;
@@ -159,16 +162,31 @@ impl ListView {
                 name.push('/');
                 files = textutil::count(n.files as i64);
             }
-            let modified = if n.mtime > 0 { fmt_date(n.mtime) } else { String::new() };
+            let modified = if n.mtime > 0 {
+                fmt_date(n.mtime)
+            } else {
+                String::new()
+            };
             let c = m.color_of(tr, id as i64);
             let mut name_st = Style::new(c.mix(t.fg, 0.45), t.bg);
             if n.is_dir() {
                 name_st.attr = BOLD;
             }
-            let frac = if k.sizes[0] > 0 { k.sizes[i] as f64 / k.sizes[0] as f64 } else { 0.0 };
+            let frac = if k.sizes[0] > 0 {
+                k.sizes[i] as f64 / k.sizes[0] as f64
+            } else {
+                0.0
+            };
             let muted = Some(Style::new(t.muted, t.bg));
             let mut row = TableRow {
-                cells: vec![textutil::size(k.sizes[i]), textutil::percent(k.sizes[i], total), String::new(), files, modified, name],
+                cells: vec![
+                    textutil::size(k.sizes[i]),
+                    textutil::percent(k.sizes[i], total),
+                    String::new(),
+                    files,
+                    modified,
+                    name,
+                ],
                 styles: vec![None, muted, None, muted, muted, Some(name_st)],
                 bar: frac,
                 bar_col: c,
@@ -178,15 +196,29 @@ impl ListView {
             }
             rows.push(row);
         }
-        let mut cols = vec![col("SIZE", 10, true, false), col("%", 5, true, false), col("", 12, false, false),
-            col("FILES", 10, true, false), col("MODIFIED", 10, false, false), col("NAME", 0, false, false)];
+        let mut cols = vec![
+            col("SIZE", 10, true, false),
+            col("%", 5, true, false),
+            col("", 12, false, false),
+            col("FILES", 10, true, false),
+            col("MODIFIED", 10, false, false),
+            col("NAME", 0, false, false),
+        ];
         if m.opts.diff.is_some() {
             cols[4] = col("CHANGE", 12, true, false);
         }
         if r.w < 70 {
-            cols = vec![col("SIZE", 10, true, false), col("%", 5, true, false), col("NAME", 0, false, false)];
+            cols = vec![
+                col("SIZE", 10, true, false),
+                col("%", 5, true, false),
+                col("NAME", 0, false, false),
+            ];
             for row in rows.iter_mut() {
-                row.cells = vec![std::mem::take(&mut row.cells[0]), std::mem::take(&mut row.cells[1]), std::mem::take(&mut row.cells[5])];
+                row.cells = vec![
+                    std::mem::take(&mut row.cells[0]),
+                    std::mem::take(&mut row.cells[1]),
+                    std::mem::take(&mut row.cells[5]),
+                ];
                 row.styles = vec![None, row.styles[1], row.styles[5]];
             }
         }
@@ -247,22 +279,56 @@ impl ExtView {
         let rows: Vec<TableRow> = st
             .iter()
             .map(|s| {
-                let ext = if s.ext.is_empty() { "(none)".to_string() } else { format!(".{}", s.ext) };
-                let c = t.ext.as_ref().and_then(|e| e.get(&s.ext)).copied().unwrap_or(t.cat[s.cat as usize]);
-                let frac = if v0 > 0 { pick(m, s) as f64 / v0 as f64 } else { 0.0 };
+                let ext = if s.ext.is_empty() {
+                    "(none)".to_string()
+                } else {
+                    format!(".{}", s.ext)
+                };
+                let c = t
+                    .ext
+                    .as_ref()
+                    .and_then(|e| e.get(&s.ext))
+                    .copied()
+                    .unwrap_or(t.cat[s.cat as usize]);
+                let frac = if v0 > 0 {
+                    pick(m, s) as f64 / v0 as f64
+                } else {
+                    0.0
+                };
                 TableRow {
-                    cells: vec![textutil::sanitize(&ext), s.cat.name().into(), textutil::count(s.count), textutil::size(pick(m, s)),
-                        textutil::percent(pick(m, s), total), String::new()],
-                    styles: vec![Some(Style::new(c, t.bg).with(BOLD)), Some(Style::new(t.muted, t.bg)), None, None,
-                        Some(Style::new(t.muted, t.bg)), None],
+                    cells: vec![
+                        textutil::sanitize(&ext),
+                        s.cat.name().into(),
+                        textutil::count(s.count),
+                        textutil::size(pick(m, s)),
+                        textutil::percent(pick(m, s), total),
+                        String::new(),
+                    ],
+                    styles: vec![
+                        Some(Style::new(c, t.bg).with(BOLD)),
+                        Some(Style::new(t.muted, t.bg)),
+                        None,
+                        None,
+                        Some(Style::new(t.muted, t.bg)),
+                        None,
+                    ],
                     bar: frac,
                     bar_col: c,
                 }
             })
             .collect();
-        let cols = [col("EXTENSION", 14, false, false), col("CATEGORY", 12, false, false), col("FILES", 11, true, false),
-            col("SIZE", 10, true, false), col("%", 5, true, false), col("", 0, false, false)];
-        let title = format!("File types under {} — Enter filters the map by extension", san(&tr.node(m.zoom).name));
+        let cols = [
+            col("EXTENSION", 14, false, false),
+            col("CATEGORY", 12, false, false),
+            col("FILES", 11, true, false),
+            col("SIZE", 10, true, false),
+            col("%", 5, true, false),
+            col("", 0, false, false),
+        ];
+        let title = format!(
+            "File types under {} — Enter filters the map by extension",
+            san(&tr.node(m.zoom).name)
+        );
         self.tb.paint(m, cv, r, &cols, &rows, &title);
     }
 
@@ -273,7 +339,11 @@ impl ExtView {
         }
         if (k == "enter" || k == "space") && self.tb.at() < st.len() {
             let e = &st[self.tb.at()].ext;
-            let q = if e.is_empty() { "type = file AND ext = \"\"".to_string() } else { format!("ext = \"{e}\"") };
+            let q = if e.is_empty() {
+                "type = file AND ext = \"\"".to_string()
+            } else {
+                format!("ext = \"{e}\"")
+            };
             m.set_view_by_name("Map");
             return (true, m.set_filter(&q));
         }
@@ -295,10 +365,25 @@ enum TopMode {
     Hardlinks,
 }
 
-const TOP_MODES: [TopMode; 7] = [TopMode::Files, TopMode::Dirs, TopMode::Old, TopMode::New, TopMode::Count, TopMode::Sparse, TopMode::Hardlinks];
+const TOP_MODES: [TopMode; 7] = [
+    TopMode::Files,
+    TopMode::Dirs,
+    TopMode::Old,
+    TopMode::New,
+    TopMode::Count,
+    TopMode::Sparse,
+    TopMode::Hardlinks,
+];
 
-const TOP_NAMES: [&str; 7] = ["Largest files", "Largest directories (own files)", "Oldest large files", "Newest large files",
-    "Most files", "Sparse files", "Hard-linked files"];
+const TOP_NAMES: [&str; 7] = [
+    "Largest files",
+    "Largest directories (own files)",
+    "Oldest large files",
+    "Newest large files",
+    "Most files",
+    "Sparse files",
+    "Hard-linked files",
+];
 
 const TOP_LIMIT: usize = 500;
 
@@ -319,7 +404,9 @@ impl TopView {
             return;
         }
         (self.cache_key, self.computed) = (k, true);
-        let is_file = |n: &crate::inventory::Node| n.kind == Kind::File && n.flags & (FLAG_HARDLINK_DUP | FLAG_DELETED) == 0;
+        let is_file = |n: &crate::inventory::Node| {
+            n.kind == Kind::File && n.flags & (FLAG_HARDLINK_DUP | FLAG_DELETED) == 0
+        };
         let matches = |id: NodeId| m.search.result.as_ref().is_none_or(|r| r.size(id) > 0);
         let mut tk = TopK::new(TOP_LIMIT);
         let mut val: HashMap<NodeId, i64> = HashMap::new();
@@ -358,7 +445,14 @@ impl TopView {
                     }
                     TopMode::Old | TopMode::New => {
                         if sz >= LARGE_FILE && n.mtime > 0 {
-                            tk.offer(id, if mode == TopMode::Old { -n.mtime } else { n.mtime });
+                            tk.offer(
+                                id,
+                                if mode == TopMode::Old {
+                                    -n.mtime
+                                } else {
+                                    n.mtime
+                                },
+                            );
                             val.insert(id, sz);
                         }
                     }
@@ -390,8 +484,16 @@ impl TopView {
         let mut rows = Vec::with_capacity(self.ids.len());
         for (i, &id) in self.ids.iter().enumerate() {
             let n = tr.node(id);
-            let val = if self.mode == TopMode::Count { textutil::count(self.vals[i]) } else { textutil::size(self.vals[i]) };
-            let modified = if n.mtime > 0 { fmt_date(n.mtime) } else { String::new() };
+            let val = if self.mode == TopMode::Count {
+                textutil::count(self.vals[i])
+            } else {
+                textutil::size(self.vals[i])
+            };
+            let modified = if n.mtime > 0 {
+                fmt_date(n.mtime)
+            } else {
+                String::new()
+            };
             let frac = if first > 0 && self.mode != TopMode::Old && self.mode != TopMode::New {
                 self.vals[i] as f64 / first as f64
             } else {
@@ -400,12 +502,20 @@ impl TopView {
             let c = m.color_of(tr, id as i64);
             rows.push(TableRow {
                 cells: vec![val, modified, String::new(), san(&tr.path_bytes(id))],
-                styles: vec![None, Some(Style::new(t.muted, t.bg)), None, Some(Style::new(c.mix(t.fg, 0.45), t.bg))],
+                styles: vec![
+                    None,
+                    Some(Style::new(t.muted, t.bg)),
+                    None,
+                    Some(Style::new(c.mix(t.fg, 0.45), t.bg)),
+                ],
                 bar: frac,
                 bar_col: c,
             });
         }
-        let mut title = format!("◂ {} ▸   (←/→ change list · Enter details · Space jump to it)", TOP_NAMES[self.mode as usize]);
+        let mut title = format!(
+            "◂ {} ▸   (←/→ change list · Enter details · Space jump to it)",
+            TOP_NAMES[self.mode as usize]
+        );
         if m.search.result.is_some() {
             title += "  · filtered";
         }
@@ -414,7 +524,12 @@ impl TopView {
             TopMode::Sparse => "SAVED",
             _ => "SIZE",
         };
-        let cols = [col(val_title, 10, true, false), col("MODIFIED", 10, false, false), col("", 10, false, false), col("PATH", 0, false, true)];
+        let cols = [
+            col(val_title, 10, true, false),
+            col("MODIFIED", 10, false, false),
+            col("", 10, false, false),
+            col("PATH", 0, false, true),
+        ];
         self.tb.paint(m, cv, r, &cols, &rows, &title);
     }
 
@@ -487,18 +602,45 @@ impl ChangesView {
                     Status::Unchanged => Color::default(),
                 };
                 TableRow {
-                    cells: vec![textutil::signed_size(c.delta), c.status.name().into(), textutil::size(c.old), textutil::size(c.new),
-                        String::new(), textutil::sanitize(&c.path)],
-                    styles: vec![Some(Style::new(col, t.bg).with(BOLD)), Some(Style::new(col, t.bg)), Some(Style::new(t.muted, t.bg)), None, None, None],
+                    cells: vec![
+                        textutil::signed_size(c.delta),
+                        c.status.name().into(),
+                        textutil::size(c.old),
+                        textutil::size(c.new),
+                        String::new(),
+                        textutil::sanitize(&c.path),
+                    ],
+                    styles: vec![
+                        Some(Style::new(col, t.bg).with(BOLD)),
+                        Some(Style::new(col, t.bg)),
+                        Some(Style::new(t.muted, t.bg)),
+                        None,
+                        None,
+                        None,
+                    ],
                     bar: c.delta.abs() as f64 / max_abs as f64,
                     bar_col: col,
                 }
             })
             .collect();
-        let cols = [col("CHANGE", 13, true, false), col("STATUS", 9, false, false), col("OLD", 10, true, false),
-            col("NEW", 10, true, false), col("", 10, false, false), col("PATH", 0, false, true)];
-        let (ro, rn) = (d.old.node(0).total(m.size_mode), tr.node(0).total(m.size_mode));
-        let title = format!("Changes  {} → {}  ({})", textutil::size(ro), textutil::size(rn), textutil::signed_size(rn - ro));
+        let cols = [
+            col("CHANGE", 13, true, false),
+            col("STATUS", 9, false, false),
+            col("OLD", 10, true, false),
+            col("NEW", 10, true, false),
+            col("", 10, false, false),
+            col("PATH", 0, false, true),
+        ];
+        let (ro, rn) = (
+            d.old.node(0).total(m.size_mode),
+            tr.node(0).total(m.size_mode),
+        );
+        let title = format!(
+            "Changes  {} → {}  ({})",
+            textutil::size(ro),
+            textutil::size(rn),
+            textutil::signed_size(rn - ro)
+        );
         self.tb.paint(m, cv, r, &cols, &rows, &title);
     }
 
@@ -511,7 +653,10 @@ impl ChangesView {
             let c = &self.rows.as_ref().unwrap()[self.tb.at()];
             if c.node == NO_NODE {
                 if k == "enter" || k == "space" {
-                    let msg = format!("Removed since the old snapshot: {}", textutil::sanitize(&c.path));
+                    let msg = format!(
+                        "Removed since the old snapshot: {}",
+                        textutil::sanitize(&c.path)
+                    );
                     return (true, m.info(msg));
                 }
                 return (false, Cmd::None);

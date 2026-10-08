@@ -104,7 +104,11 @@ impl Finder {
             let mut by_size: HashMap<i64, Vec<Cand>> = HashMap::new();
             t.walk(t.root(), |id, n| {
                 if n.kind == Kind::File && !n.has(FLAG_HARDLINK_DUP) && n.size >= o.min_size {
-                    by_size.entry(n.size).or_default().push(Cand { id, path: PathBuf::new(), size: n.size });
+                    by_size.entry(n.size).or_default().push(Cand {
+                        id,
+                        path: PathBuf::new(),
+                        size: n.size,
+                    });
                 }
                 true
             });
@@ -133,11 +137,18 @@ impl Finder {
                 sampled.push(g); // a sample would be the whole file
                 continue;
             }
-            sampled.extend(self.split(cancel, &g, o.workers, sample_hash).into_values().filter(|v| v.len() > 1));
+            sampled.extend(
+                self.split(cancel, &g, o.workers, sample_hash)
+                    .into_values()
+                    .filter(|v| v.len() > 1),
+            );
         }
 
         // Stage 3: full hashes.
-        self.to_hash.store(sampled.iter().map(|g| g[0].size * g.len() as i64).sum(), Ordering::Relaxed);
+        self.to_hash.store(
+            sampled.iter().map(|g| g[0].size * g.len() as i64).sum(),
+            Ordering::Relaxed,
+        );
         self.stage("hashing", |_| {});
         let mut out = Vec::new();
         for g in &sampled {
@@ -148,21 +159,35 @@ impl Finder {
                 if v.len() > 1 {
                     let mut files: Vec<NodeId> = v.iter().map(|c| c.id).collect();
                     files.sort_unstable();
-                    out.push(Group { size: v[0].size, hash, files });
+                    out.push(Group {
+                        size: v[0].size,
+                        hash,
+                        files,
+                    });
                 }
             }
         }
         if cancel.is_cancelled() {
             return None;
         }
-        out.sort_by(|a, b| b.wasted().cmp(&a.wasted()).then(a.files[0].cmp(&b.files[0])));
+        out.sort_by(|a, b| {
+            b.wasted()
+                .cmp(&a.wasted())
+                .then(a.files[0].cmp(&b.files[0]))
+        });
         self.stage("done", |p| p.verified_groups = out.len() as i64);
         Some(out)
     }
 
     /// Hashes every candidate with a bounded pool of reader threads and
     /// buckets the successes by hash. Stops starting new reads once cancelled.
-    fn split(&self, cancel: &Cancel, g: &[Cand], workers: usize, f: HashFn) -> HashMap<[u8; 32], Vec<Cand>> {
+    fn split(
+        &self,
+        cancel: &Cancel,
+        g: &[Cand],
+        workers: usize,
+        f: HashFn,
+    ) -> HashMap<[u8; 32], Vec<Cand>> {
         let next = AtomicUsize::new(0);
         let results = Mutex::new(Vec::with_capacity(g.len()));
         std::thread::scope(|s| {
@@ -244,7 +269,15 @@ mod tests {
     use std::time::Duration;
 
     fn scan(root: &Path, workers: usize) -> Arc<RwLock<Tree>> {
-        let s = scan::start(root.as_os_str().as_bytes(), scan::Options { workers, ..Default::default() }, Cancel::new()).unwrap();
+        let s = scan::start(
+            root.as_os_str().as_bytes(),
+            scan::Options {
+                workers,
+                ..Default::default()
+            },
+            Cancel::new(),
+        )
+        .unwrap();
         s.wait();
         s.tree.clone()
     }
@@ -270,7 +303,11 @@ mod tests {
         assert_eq!(groups.len(), 2);
         let t = tree.read().unwrap();
         let names = |g: &Group| {
-            let mut v: Vec<String> = g.files.iter().map(|&id| t.node(id).name_str().into_owned()).collect();
+            let mut v: Vec<String> = g
+                .files
+                .iter()
+                .map(|&id| t.node(id).name_str().into_owned())
+                .collect();
             v.sort();
             v
         };
@@ -278,7 +315,10 @@ mod tests {
         assert_eq!(groups[0].size, 200_000);
         assert_eq!(names(&groups[1]), ["small1", "small2"], "small group");
         let p = f.progress();
-        assert!(p.candidates == 6 && p.verified_groups == 2, "progress {p:?}");
+        assert!(
+            p.candidates == 6 && p.verified_groups == 2,
+            "progress {p:?}"
+        );
     }
 
     /// A candidate replaced by a FIFO (or a symlink to one) after the scan
@@ -308,8 +348,12 @@ mod tests {
         let f = Arc::new(Finder::default());
         let (tx, rx) = crossbeam_channel::bounded(1);
         let (f2, t2) = (f.clone(), tree.clone());
-        std::thread::spawn(move || tx.send(f2.find(&Cancel::new(), &t2, Options::default()).is_some()));
-        assert!(rx.recv_timeout(Duration::from_secs(5)).expect("duplicate search blocked on a FIFO"));
+        std::thread::spawn(move || {
+            tx.send(f2.find(&Cancel::new(), &t2, Options::default()).is_some())
+        });
+        assert!(rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("duplicate search blocked on a FIFO"));
         assert_eq!(f.progress().skipped, 2);
     }
 }

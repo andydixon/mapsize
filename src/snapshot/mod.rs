@@ -31,7 +31,9 @@ mod compare;
 pub use compare::*;
 
 use crate::brand;
-use crate::inventory::{Category, ErrKind, ErrorRecord, Kind, NodeId, Tree, MAX_ERROR_RECORDS, NUM_CATEGORIES};
+use crate::inventory::{
+    Category, ErrKind, ErrorRecord, Kind, NodeId, Tree, MAX_ERROR_RECORDS, NUM_CATEGORIES,
+};
 use crossbeam_channel::Receiver;
 use flate2::{bufread::GzDecoder, write::GzEncoder, Compression};
 use serde::{Deserialize, Serialize};
@@ -91,7 +93,10 @@ struct Meta {
 /// Reports whether path starts with the snapshot magic.
 pub fn is_snapshot(path: &Path) -> bool {
     let mut b = [0u8; 8];
-    File::open(path).and_then(|mut f| f.read_exact(&mut b)).is_ok() && &b == brand::SNAPSHOT_MAGIC
+    File::open(path)
+        .and_then(|mut f| f.read_exact(&mut b))
+        .is_ok()
+        && &b == brand::SNAPSHOT_MAGIC
 }
 
 /// Accumulates the body; flushes it through the hash and gzip in chunks.
@@ -140,14 +145,21 @@ pub fn save(out: &mut dyn Write, t: &Tree) -> io::Result<()> {
     bw.write_all(brand::SNAPSHOT_MAGIC)?;
     bw.write_all(&VERSION.to_le_bytes())?;
     bw.write_all(&FLAG_GZIPPED.to_le_bytes())?;
-    let mut w = Writer { gz: GzEncoder::new(bw, Compression::fast()), h: Sha256::new(), buf: Vec::with_capacity(256 << 10) };
+    let mut w = Writer {
+        gz: GzEncoder::new(bw, Compression::fast()),
+        h: Sha256::new(),
+        buf: Vec::with_capacity(256 << 10),
+    };
 
     let st = &t.stats;
     let m = Meta {
         root: String::from_utf8_lossy(&st.root).into_owned(),
         created: GoTime::from_system(SystemTime::now()),
         start: GoTime::from_system(st.start).local(),
-        end: st.end.map(|e| GoTime::from_system(e).local()).unwrap_or_default(),
+        end: st
+            .end
+            .map(|e| GoTime::from_system(e).local())
+            .unwrap_or_default(),
         complete: st.complete,
         cancelled: st.cancelled,
         files: st.files,
@@ -223,16 +235,31 @@ pub fn save_file(path: &Path, t: &Tree) -> io::Result<()> {
 
 /// Creates a new 0600 file named .mapsize-*.tmp in dir (like os.CreateTemp).
 fn create_temp(dir: &Path) -> io::Result<(PathBuf, File)> {
-    let seed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().subsec_nanos() ^ std::process::id();
+    let seed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .subsec_nanos()
+        ^ std::process::id();
     for i in 0..10000u32 {
-        let p = dir.join(format!(".mapsize-{}.tmp", seed.wrapping_add(i.wrapping_mul(7919))));
-        match OpenOptions::new().write(true).create_new(true).mode(0o600).open(&p) {
+        let p = dir.join(format!(
+            ".mapsize-{}.tmp",
+            seed.wrapping_add(i.wrapping_mul(7919))
+        ));
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&p)
+        {
             Ok(f) => return Ok((p, f)),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(e) => return Err(e),
         }
     }
-    Err(io::Error::new(io::ErrorKind::AlreadyExists, "snapshot: cannot create temporary file"))
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        "snapshot: cannot create temporary file",
+    ))
 }
 
 fn hostname() -> String {
@@ -257,7 +284,12 @@ const UNEXPECTED_EOF: &str = "unexpected EOF";
 
 impl Body {
     fn new(rx: Receiver<Result<Vec<u8>, String>>) -> Body {
-        Body { rx, buf: Vec::new(), pos: 0, err: None }
+        Body {
+            rx,
+            buf: Vec::new(),
+            pos: 0,
+            err: None,
+        }
     }
 
     /// Ensures unread bytes are buffered; false at end of stream.
@@ -320,7 +352,8 @@ impl Body {
 
     fn bytes_n(&mut self, n: u64) -> Result<Vec<u8>, String> {
         let mut b = vec![0u8; n as usize];
-        self.read_full(&mut b).map_err(|e| format!("snapshot: truncated: {e}"))?;
+        self.read_full(&mut b)
+            .map_err(|e| format!("snapshot: truncated: {e}"))?;
         Ok(b)
     }
 
@@ -391,13 +424,16 @@ pub fn load_file(path: &Path) -> Result<Tree, crate::Error> {
 fn load_inner(input: impl Read, max_body: i64, max_nodes: u64) -> Result<Tree, String> {
     let mut br = BufReader::with_capacity(1 << 20, input);
     let mut hdr = [0u8; 12];
-    br.read_exact(&mut hdr).map_err(|_| "snapshot: file too short".to_string())?;
+    br.read_exact(&mut hdr)
+        .map_err(|_| "snapshot: file too short".to_string())?;
     if &hdr[..8] != brand::SNAPSHOT_MAGIC {
         return Err(format!("snapshot: not a {} snapshot", brand::NAME));
     }
     let v = u16::from_le_bytes([hdr[8], hdr[9]]);
     if v != VERSION {
-        return Err(format!("snapshot: unsupported version {v} (this build reads {VERSION})"));
+        return Err(format!(
+            "snapshot: unsupported version {v} (this build reads {VERSION})"
+        ));
     }
     if u16::from_le_bytes([hdr[10], hdr[11]]) & FLAG_GZIPPED == 0 {
         return Err("snapshot: uncompressed bodies are not supported".into());
@@ -436,13 +472,16 @@ fn load_inner(input: impl Read, max_body: i64, max_nodes: u64) -> Result<Tree, S
                 }
             }
             drop(tx);
-            parser.join().unwrap_or_else(|p| std::panic::resume_unwind(p))
+            parser
+                .join()
+                .unwrap_or_else(|p| std::panic::resume_unwind(p))
         })
     };
     let (mut t, m) = res?;
     // The checksum follows the gzip stream.
     let mut sum = [0u8; 32];
-    br.read_exact(&mut sum).map_err(|_| "snapshot: missing checksum".to_string())?;
+    br.read_exact(&mut sum)
+        .map_err(|_| "snapshot: missing checksum".to_string())?;
     if sum[..] != h.finalize()[..] {
         return Err("snapshot: checksum mismatch (file corrupt)".into());
     }
@@ -454,17 +493,36 @@ fn load_inner(input: impl Read, max_body: i64, max_nodes: u64) -> Result<Tree, S
     st.complete = true;
     st.cancelled = m.cancelled;
     (st.files, st.dirs, st.symlinks, st.others) = (m.files, m.dirs, m.symlinks, m.others);
-    for (d, s) in st.err_counts.iter_mut().zip(m.err_counts.unwrap_or_default()) {
+    for (d, s) in st
+        .err_counts
+        .iter_mut()
+        .zip(m.err_counts.unwrap_or_default())
+    {
         *d = s;
     }
-    (st.excluded, st.skipped_mounts, st.virtual_skipped) = (m.excluded, m.skipped_mounts, m.virtual_skipped);
-    (st.loops_skipped, st.broken_links, st.hardlink_dups, st.unscanned) =
-        (m.loops_skipped, m.broken_links, m.hardlink_dups, m.unscanned);
+    (st.excluded, st.skipped_mounts, st.virtual_skipped) =
+        (m.excluded, m.skipped_mounts, m.virtual_skipped);
+    (
+        st.loops_skipped,
+        st.broken_links,
+        st.hardlink_dups,
+        st.unscanned,
+    ) = (
+        m.loops_skipped,
+        m.broken_links,
+        m.hardlink_dups,
+        m.unscanned,
+    );
     st.excludes = m.excludes.unwrap_or_default();
     st.one_file_system = m.one_file_system;
     st.follow = m.follow;
     st.workers = m.workers.max(0) as usize;
-    st.from_snapshot = format!("{} ({}, {})", m.created.local_minutes(), m.host, m.generator);
+    st.from_snapshot = format!(
+        "{} ({}, {})",
+        m.created.local_minutes(),
+        m.host,
+        m.generator
+    );
     Ok(t)
 }
 
@@ -519,11 +577,16 @@ fn parse(r: &mut Body, max_nodes: u64) -> Result<(Tree, Meta), String> {
                 return Err(format!("snapshot: node {i}: parent is not a directory"));
             }
             if !valid_name(&name) {
-                return Err(format!("snapshot: node {i}: invalid name {:?}", String::from_utf8_lossy(&name)));
+                return Err(format!(
+                    "snapshot: node {i}: invalid name {:?}",
+                    String::from_utf8_lossy(&name)
+                ));
             }
             let d = depth[parent as usize] + 1;
             if d > MAX_DEPTH {
-                return Err(format!("snapshot: node {i}: deeper than {MAX_DEPTH} levels"));
+                return Err(format!(
+                    "snapshot: node {i}: deeper than {MAX_DEPTH} levels"
+                ));
             }
             depth.push(d);
             t.add(parent, &name, kind)
@@ -544,7 +607,12 @@ fn parse(r: &mut Body, max_nodes: u64) -> Result<(Tree, Meta), String> {
         let kind = ErrKind::from_u8(r.byte1()?); // out-of-range kinds become Other
         let name = r.str(MAX_NAME_LEN, "error name")?;
         let msg = String::from_utf8_lossy(&r.str(MAX_MSG_LEN, "error message")?).into_owned();
-        t.stats.errors.push(ErrorRecord { node, kind, name, msg });
+        t.stats.errors.push(ErrorRecord {
+            node,
+            kind,
+            name,
+            msg,
+        });
     }
     // The body must end here.
     if r.byte() != Err(EOF.into()) {
@@ -571,19 +639,35 @@ const GO_ZERO_SECS: i64 = -62_135_596_800;
 
 impl Default for GoTime {
     fn default() -> Self {
-        GoTime { secs: GO_ZERO_SECS, nanos: 0, off: 0 }
+        GoTime {
+            secs: GO_ZERO_SECS,
+            nanos: 0,
+            off: 0,
+        }
     }
 }
 
 impl GoTime {
     fn from_system(t: SystemTime) -> GoTime {
         match t.duration_since(UNIX_EPOCH) {
-            Ok(d) => GoTime { secs: d.as_secs() as i64, nanos: d.subsec_nanos(), off: 0 },
+            Ok(d) => GoTime {
+                secs: d.as_secs() as i64,
+                nanos: d.subsec_nanos(),
+                off: 0,
+            },
             Err(e) => {
                 let d = e.duration();
                 let (s, n) = (d.as_secs() as i64, d.subsec_nanos());
-                let (secs, nanos) = if n == 0 { (-s, 0) } else { (-s - 1, 1_000_000_000 - n) };
-                GoTime { secs, nanos, off: 0 }
+                let (secs, nanos) = if n == 0 {
+                    (-s, 0)
+                } else {
+                    (-s - 1, 1_000_000_000 - n)
+                };
+                GoTime {
+                    secs,
+                    nanos,
+                    off: 0,
+                }
             }
         }
     }
@@ -602,7 +686,8 @@ impl GoTime {
         if self.secs >= 0 {
             UNIX_EPOCH + Duration::new(self.secs as u64, self.nanos)
         } else {
-            UNIX_EPOCH - Duration::from_secs(self.secs.unsigned_abs()) + Duration::from_nanos(self.nanos as u64)
+            UNIX_EPOCH - Duration::from_secs(self.secs.unsigned_abs())
+                + Duration::from_nanos(self.nanos as u64)
         }
     }
 
@@ -611,7 +696,12 @@ impl GoTime {
         let secs = self.secs + self.off as i64;
         let (y, mo, d) = civil_from_days(secs.div_euclid(86400));
         let rem = secs.rem_euclid(86400);
-        let mut s = format!("{y:04}-{mo:02}-{d:02}T{:02}:{:02}:{:02}", rem / 3600, rem / 60 % 60, rem % 60);
+        let mut s = format!(
+            "{y:04}-{mo:02}-{d:02}T{:02}:{:02}:{:02}",
+            rem / 3600,
+            rem / 60 % 60,
+            rem % 60
+        );
         if self.nanos != 0 {
             s += format!(".{:09}", self.nanos).trim_end_matches('0');
         }
@@ -619,7 +709,12 @@ impl GoTime {
             return s + "Z";
         }
         let a = self.off.unsigned_abs() / 60;
-        format!("{s}{}{:02}:{:02}", if self.off < 0 { '-' } else { '+' }, a / 60, a % 60)
+        format!(
+            "{s}{}{:02}:{:02}",
+            if self.off < 0 { '-' } else { '+' },
+            a / 60,
+            a % 60
+        )
     }
 
     /// Parses RFC 3339 ("2026-10-08T10:40:00.123456789+01:00").
@@ -627,12 +722,27 @@ impl GoTime {
         let b = s.as_bytes();
         let num = |r: std::ops::Range<usize>| -> Option<i64> {
             let p = b.get(r)?;
-            p.iter().all(u8::is_ascii_digit).then(|| p.iter().fold(0i64, |a, &c| a * 10 + (c - b'0') as i64))
+            p.iter()
+                .all(u8::is_ascii_digit)
+                .then(|| p.iter().fold(0i64, |a, &c| a * 10 + (c - b'0') as i64))
         };
-        if b.len() < 20 || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' || b[13] != b':' || b[16] != b':' {
+        if b.len() < 20
+            || b[4] != b'-'
+            || b[7] != b'-'
+            || b[10] != b'T'
+            || b[13] != b':'
+            || b[16] != b':'
+        {
             return None;
         }
-        let (y, mo, d, h, mi, se) = (num(0..4)?, num(5..7)?, num(8..10)?, num(11..13)?, num(14..16)?, num(17..19)?);
+        let (y, mo, d, h, mi, se) = (
+            num(0..4)?,
+            num(5..7)?,
+            num(8..10)?,
+            num(11..13)?,
+            num(14..16)?,
+            num(17..19)?,
+        );
         if !(1..=12).contains(&mo) || !(1..=31).contains(&d) || h > 23 || mi > 59 || se > 59 {
             return None;
         }
@@ -666,13 +776,26 @@ impl GoTime {
             _ => return None,
         };
         let secs = days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + se - off;
-        Some(GoTime { secs, nanos, off: off as i32 })
+        Some(GoTime {
+            secs,
+            nanos,
+            off: off as i32,
+        })
     }
 
     /// "2006-01-02 15:04" in local time.
     fn local_minutes(self) -> String {
-        let Some(tm) = localtime(self.secs) else { return self.format() };
-        format!("{:04}-{:02}-{:02} {:02}:{:02}", tm.tm_year as i64 + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min)
+        let Some(tm) = localtime(self.secs) else {
+            return self.format();
+        };
+        format!(
+            "{:04}-{:02}-{:02} {:02}:{:02}",
+            tm.tm_year as i64 + 1900,
+            tm.tm_mon + 1,
+            tm.tm_mday,
+            tm.tm_hour,
+            tm.tm_min
+        )
     }
 }
 
@@ -693,7 +816,8 @@ impl<'de> Deserialize<'de> for GoTime {
         // null leaves the zero time, as in Go.
         match Option::<String>::deserialize(d)? {
             None => Ok(GoTime::default()),
-            Some(s) => GoTime::parse(&s).ok_or_else(|| serde::de::Error::custom(format!("parsing time {s:?}"))),
+            Some(s) => GoTime::parse(&s)
+                .ok_or_else(|| serde::de::Error::custom(format!("parsing time {s:?}"))),
         }
     }
 }
@@ -737,7 +861,12 @@ mod tests {
         t.node_mut(f2).flags = FLAG_SPARSE;
         t.recompute();
         (t.stats.files, t.stats.dirs) = (2, 3);
-        t.stats.add_error(ErrorRecord { node: b, kind: ErrKind::Permission, msg: "denied".into(), ..Default::default() });
+        t.stats.add_error(ErrorRecord {
+            node: b,
+            kind: ErrKind::Permission,
+            msg: "denied".into(),
+            ..Default::default()
+        });
         t
     }
 
@@ -755,8 +884,12 @@ mod tests {
         for i in 0..src.len() as NodeId {
             let (a, b) = (src.node(i), got.node(i));
             assert!(
-                a.name == b.name && a.tot_size == b.tot_size && a.tot_alloc == b.tot_alloc && a.flags == b.flags
-                    && src.path(i) == got.path(i) && src.ext_name(a) == got.ext_name(b),
+                a.name == b.name
+                    && a.tot_size == b.tot_size
+                    && a.tot_alloc == b.tot_alloc
+                    && a.flags == b.flags
+                    && src.path(i) == got.path(i)
+                    && src.ext_name(a) == got.ext_name(b),
                 "node {i} differs: {a:?} vs {b:?}"
             );
         }
@@ -802,8 +935,14 @@ mod tests {
         assert_eq!(paths.get("/srv/a/x.iso"), Some(&Status::Grew), "{ch:?}");
         assert_eq!(paths.get("/srv/b"), Some(&Status::Removed), "{ch:?}");
         assert_eq!(paths.get("/srv/c"), Some(&Status::Added), "{ch:?}");
-        assert!(!paths.contains_key("/srv/a"), "/srv/a should be explained by its child");
-        assert!(!paths.contains_key("/srv/c/z"), "contents of new dirs should not be listed separately");
+        assert!(
+            !paths.contains_key("/srv/a"),
+            "/srv/a should be explained by its child"
+        );
+        assert!(
+            !paths.contains_key("/srv/c/z"),
+            "contents of new dirs should not be listed separately"
+        );
     }
 
     fn body(b: &[u8]) -> Body {
@@ -813,7 +952,11 @@ mod tests {
     }
 
     fn put_uvarint(v: u64) -> Vec<u8> {
-        let mut w = Writer { gz: GzEncoder::new(Vec::new(), Compression::fast()), h: Sha256::new(), buf: Vec::new() };
+        let mut w = Writer {
+            gz: GzEncoder::new(Vec::new(), Compression::fast()),
+            h: Sha256::new(),
+            buf: Vec::new(),
+        };
         w.uvarint(v).unwrap();
         w.buf
     }
@@ -824,7 +967,10 @@ mod tests {
             assert_eq!(read_uvarint(&mut body(&put_uvarint(v))), Ok(v));
         }
         assert_eq!(put_uvarint(300), [0xac, 0x02]);
-        assert!(read_uvarint(&mut body(&[0xff; 11])).is_err(), "overflow not detected");
+        assert!(
+            read_uvarint(&mut body(&[0xff; 11])).is_err(),
+            "overflow not detected"
+        );
         // Zig-zag as Go's PutVarint.
         for (v, enc) in [(0i64, 0u64), (-1, 1), (1, 2), (-2, 3), (i64::MIN, u64::MAX)] {
             assert_eq!(((v << 1) ^ (v >> 63)) as u64, enc);
@@ -837,13 +983,38 @@ mod tests {
         let t = GoTime::parse("2026-10-08T10:40:00.123456789+01:00").unwrap();
         assert_eq!((t.secs, t.nanos, t.off), (1_791_452_400, 123_456_789, 3600));
         assert_eq!(t.format(), "2026-10-08T10:40:00.123456789+01:00");
-        assert_eq!(GoTime { off: 0, ..t }.format(), "2026-10-08T09:40:00.123456789Z");
-        assert_eq!(GoTime { off: -5 * 3600 - 1800, ..t }.format(), "2026-10-08T04:10:00.123456789-05:30");
-        assert_eq!(GoTime::parse("2026-10-08T09:40:00.1Z").unwrap().format(), "2026-10-08T09:40:00.1Z");
-        assert_eq!(GoTime::parse("0001-01-01T00:00:00Z"), Some(GoTime::default()));
+        assert_eq!(
+            GoTime { off: 0, ..t }.format(),
+            "2026-10-08T09:40:00.123456789Z"
+        );
+        assert_eq!(
+            GoTime {
+                off: -5 * 3600 - 1800,
+                ..t
+            }
+            .format(),
+            "2026-10-08T04:10:00.123456789-05:30"
+        );
+        assert_eq!(
+            GoTime::parse("2026-10-08T09:40:00.1Z").unwrap().format(),
+            "2026-10-08T09:40:00.1Z"
+        );
+        assert_eq!(
+            GoTime::parse("0001-01-01T00:00:00Z"),
+            Some(GoTime::default())
+        );
         assert_eq!(GoTime::default().format(), "0001-01-01T00:00:00Z");
-        assert_eq!(GoTime::from_system(GoTime::default().to_system()), GoTime::default());
-        for bad in ["", "2026-10-08", "2026-13-08T00:00:00Z", "2026-10-08T00:00:00", "2026-10-08T00:00:00.Z"] {
+        assert_eq!(
+            GoTime::from_system(GoTime::default().to_system()),
+            GoTime::default()
+        );
+        for bad in [
+            "",
+            "2026-10-08",
+            "2026-13-08T00:00:00Z",
+            "2026-10-08T00:00:00",
+            "2026-10-08T00:00:00.Z",
+        ] {
             assert_eq!(GoTime::parse(bad), None, "{bad}");
         }
     }
@@ -852,21 +1023,34 @@ mod tests {
     /// (tree/{a/x.iso 10000 B, a/b/note.txt, c/y.log 3000 B, c/link -> ../a}).
     #[test]
     fn loads_go_snapshot() {
-        let t = load_file(Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src/snapshot/testdata/go.msz"))).unwrap();
+        let t = load_file(Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/snapshot/testdata/go.msz"
+        )))
+        .unwrap();
         let r = t.node(0);
         assert_eq!((r.tot_size, r.tot_alloc), (13310, 20480));
         assert_eq!((t.stats.files, t.stats.dirs, t.stats.symlinks), (3, 4, 1));
         assert_eq!(t.len(), 8);
         assert!(t.stats.root.ends_with(b"/tree"));
         assert!(t.stats.end.is_some() && t.stats.complete);
-        assert!(t.stats.from_snapshot.contains("mapsize"), "{}", t.stats.from_snapshot);
-        let iso = (0..t.len() as NodeId).find(|&i| &t.node(i).name[..] == b"x.iso").unwrap();
+        assert!(
+            t.stats.from_snapshot.contains("mapsize"),
+            "{}",
+            t.stats.from_snapshot
+        );
+        let iso = (0..t.len() as NodeId)
+            .find(|&i| &t.node(i).name[..] == b"x.iso")
+            .unwrap();
         assert_eq!(t.node(iso).size, 10000);
         assert_eq!(t.ext_name(t.node(iso)), "iso");
         assert!(t.path_string(iso).ends_with("/tree/a/x.iso"));
         // And it survives a Rust round trip unchanged.
         let again = load(&saved(&t)[..]).unwrap();
-        assert_eq!((again.node(0).tot_size, again.len(), again.stats.start), (13310, 8, t.stats.start));
+        assert_eq!(
+            (again.node(0).tot_size, again.len(), again.stats.start),
+            (13310, 8, t.stats.start)
+        );
     }
 
     // Hostile input.
@@ -877,7 +1061,11 @@ mod tests {
         out.extend_from_slice(brand::SNAPSHOT_MAGIC);
         out.extend_from_slice(&VERSION.to_le_bytes());
         out.extend_from_slice(&FLAG_GZIPPED.to_le_bytes());
-        let mut w = Writer { gz: GzEncoder::new(out, Compression::best()), h: Sha256::new(), buf: Vec::new() };
+        let mut w = Writer {
+            gz: GzEncoder::new(out, Compression::best()),
+            h: Sha256::new(),
+            buf: Vec::new(),
+        };
         w.uvarint(meta.len() as u64).unwrap();
         w.bytes(meta.as_bytes()).unwrap();
         w.uvarint(1).unwrap();
@@ -908,49 +1096,80 @@ mod tests {
     }
 
     fn chain(n: usize) -> Vec<u8> {
-        craft(n, r#"{"root":"/r"}"#, |i, w| if i == 0 { node(w, 0, Kind::Dir, "", 0) } else { node(w, 1, Kind::Dir, "a", 0) })
+        craft(n, r#"{"root":"/r"}"#, |i, w| {
+            if i == 0 {
+                node(w, 0, Kind::Dir, "", 0)
+            } else {
+                node(w, 1, Kind::Dir, "a", 0)
+            }
+        })
     }
 
     #[test]
     fn deep_chain_rejected() {
         load(&chain(MAX_DEPTH as usize + 1)[..]).expect("depth at the limit must load");
-        let err = load(&chain(MAX_DEPTH as usize + 2)[..]).err().expect("over-deep chain accepted");
+        let err = load(&chain(MAX_DEPTH as usize + 2)[..])
+            .err()
+            .expect("over-deep chain accepted");
         assert!(err.to_string().contains("deeper"), "{err}");
     }
 
     #[test]
     fn decompression_bomb_limited() {
         let flat = craft(100_000, r#"{"root":"/r"}"#, |i, w| {
-            if i == 0 { node(w, 0, Kind::Dir, "", 0) } else { node(w, i as u64, Kind::File, "f", 0) }
+            if i == 0 {
+                node(w, 0, Kind::Dir, "", 0)
+            } else {
+                node(w, i as u64, Kind::File, "f", 0)
+            }
         });
-        let err = load_limit(&flat[..], 64 << 10).err().expect("bomb not limited");
+        let err = load_limit(&flat[..], 64 << 10)
+            .err()
+            .expect("bomb not limited");
         assert!(err.to_string().contains("limit"), "{err}");
-        assert!(body_limit(flat.len() as i64) >= 64 << 20, "body_limit floor");
+        assert!(
+            body_limit(flat.len() as i64) >= 64 << 20,
+            "body_limit floor"
+        );
     }
 
     #[test]
     fn huge_sizes_do_not_wrap() {
         let data = craft(3, r#"{"root":"/r"}"#, |i, w| {
-            if i == 0 { node(w, 0, Kind::Dir, "", 0) } else { node(w, i as u64, Kind::File, "f", MAX_SIZE) }
+            if i == 0 {
+                node(w, 0, Kind::Dir, "", 0)
+            } else {
+                node(w, i as u64, Kind::File, "f", MAX_SIZE)
+            }
         });
         let tr = load(&data[..]).unwrap();
         assert!(tr.node(0).tot_size >= 0, "aggregate wrapped negative");
         let over = craft(2, r#"{"root":"/r"}"#, |i, w| {
-            if i == 0 { node(w, 0, Kind::Dir, "", 0) } else { node(w, 1, Kind::File, "f", MAX_SIZE + 1) }
+            if i == 0 {
+                node(w, 0, Kind::Dir, "", 0)
+            } else {
+                node(w, 1, Kind::File, "f", MAX_SIZE + 1)
+            }
         });
         assert!(load(&over[..]).is_err(), "size above MAX_SIZE accepted");
     }
 
     #[test]
     fn hostile_metadata_sanitised_in_summary() {
-        let data = craft(1, r#"{"root":"/r\u001b[2J","excludes":["\u001b]0;PWNED\u0007"],"excluded":1}"#, |_, w| {
-            node(w, 0, Kind::Dir, "", 0)
-        });
+        let data = craft(
+            1,
+            r#"{"root":"/r\u001b[2J","excludes":["\u001b]0;PWNED\u0007"],"excluded":1}"#,
+            |_, w| node(w, 0, Kind::Dir, "", 0),
+        );
         let mut tr = load(&data[..]).unwrap();
         tr.stats.excluded = 1;
         let mut b = Vec::new();
         crate::export::summary(&mut b, &tr).unwrap();
-        assert!(!b.iter().any(|&c| c == 0x1b || c == 0x07), "raw control characters in summary: {:?}", String::from_utf8_lossy(&b));
+        assert!(
+            !b.iter().any(|&c| c == 0x1b || c == 0x07),
+            "raw control characters in summary: {:?}",
+            String::from_utf8_lossy(&b)
+        );
     }
 
     /// Blocks of one directory plus K-1 files repeat byte for byte, so a
@@ -971,7 +1190,9 @@ mod tests {
         fs::write(&p, &data).unwrap();
         let res = load_file(&p);
         let _ = fs::remove_file(&p);
-        let err = res.err().unwrap_or_else(|| panic!("{N} nodes from a {}-byte file accepted", data.len()));
+        let err = res
+            .err()
+            .unwrap_or_else(|| panic!("{N} nodes from a {}-byte file accepted", data.len()));
         assert!(err.to_string().contains("node count"), "{err}");
     }
 
@@ -983,7 +1204,11 @@ mod tests {
         save_file(&p, &sample()).unwrap();
         assert!(is_snapshot(&p));
         assert_eq!(load_file(&p).unwrap().len(), 5);
-        assert_eq!(fs::read_dir(&dir).unwrap().count(), 1, "temp file left behind");
+        assert_eq!(
+            fs::read_dir(&dir).unwrap().count(),
+            1,
+            "temp file left behind"
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 }

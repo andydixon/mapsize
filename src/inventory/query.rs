@@ -47,7 +47,10 @@ pub struct TopK {
 
 impl TopK {
     pub fn new(k: usize) -> TopK {
-        TopK { k, h: BinaryHeap::with_capacity(k.min(1 << 16)) }
+        TopK {
+            k,
+            h: BinaryHeap::with_capacity(k.min(1 << 16)),
+        }
     }
 
     pub fn offer(&mut self, id: NodeId, key: i64) {
@@ -67,7 +70,11 @@ impl TopK {
     /// The collected IDs, largest key first (ties by ID).
     pub fn sorted(self) -> Vec<NodeId> {
         // into_sorted_vec is ascending in Reverse order = descending key.
-        self.h.into_sorted_vec().into_iter().map(|Reverse((_, Reverse(id)))| id).collect()
+        self.h
+            .into_sorted_vec()
+            .into_iter()
+            .map(|Reverse((_, Reverse(id)))| id)
+            .collect()
     }
 }
 
@@ -87,7 +94,13 @@ impl Tree {
 
     /// The k nodes beneath (and including) root with the largest key,
     /// considering only nodes accepted by keep.
-    pub fn top(&self, root: NodeId, k: usize, keep: impl Fn(&Node) -> bool, key: impl Fn(&Node) -> i64) -> Vec<NodeId> {
+    pub fn top(
+        &self,
+        root: NodeId,
+        k: usize,
+        keep: impl Fn(&Node) -> bool,
+        key: impl Fn(&Node) -> i64,
+    ) -> Vec<NodeId> {
         let mut tk = TopK::new(k);
         self.walk(root, |id, n| {
             if keep(n) {

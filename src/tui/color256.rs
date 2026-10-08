@@ -28,7 +28,11 @@ pub(crate) fn quant256(c: Color) -> u8 {
     let (r, g, b) = (c.r() as i32, c.g() as i32, c.b() as i32);
     let (mut best, mut best_d) = (16, i32::MAX);
     for i in 0..216 {
-        let (cr, cg, cb) = (CUBE_LEVELS[i / 36], CUBE_LEVELS[i / 6 % 6], CUBE_LEVELS[i % 6]);
+        let (cr, cg, cb) = (
+            CUBE_LEVELS[i / 36],
+            CUBE_LEVELS[i / 6 % 6],
+            CUBE_LEVELS[i % 6],
+        );
         let d = redmean(r, g, b, cr, cg, cb);
         if d < best_d {
             (best, best_d) = (16 + i, d);
