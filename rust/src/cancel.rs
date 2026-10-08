@@ -39,3 +39,11 @@ impl Cancel {
         &self.0.rx
     }
 }
+
+impl Cancel {
+    /// Async-signal-safe half of cancel(): sets the flag only. Pollers must
+    /// follow up with cancel() to wake select-based waiters.
+    pub fn cancel_flag_only(&self) {
+        self.0.flag.store(true, Ordering::Relaxed);
+    }
+}
