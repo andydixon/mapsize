@@ -10,7 +10,7 @@ set -euo pipefail
 path=${1:?usage: bench-scan.sh PATH [workers...]}
 shift || true
 workers=${*:-1 2 4 8 16}
-bin=${MAPSIZE:-bin/mapsize}
+bin=${MAPSIZE:-target/release/mapsize}
 [[ -x $bin ]] || make build >/dev/null
 
 fs=$(df -T "$path" | awk 'NR==2 {print $2}')
