@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.0.0 — 2026-10-09
 
 ### Changed
 - Rewritten in Rust. Flags, keys, views, themes, the configuration file and
