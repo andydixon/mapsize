@@ -8,7 +8,7 @@ that runs over SSH.
 
 ## Status
 
-Version 1.2. See [CHANGELOG.md](CHANGELOG.md), [ROADMAP.md](ROADMAP.md) for
+Version 2.0. See [CHANGELOG.md](CHANGELOG.md), [ROADMAP.md](ROADMAP.md) for
 what comes next, and [PERFORMANCE.md](PERFORMANCE.md) for measured numbers.
 Releases cover Linux, macOS, Windows, FreeBSD and NetBSD. It is tested on
 Linux; CI also runs the test suite on macOS and Windows, but trash and
